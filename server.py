@@ -25,4 +25,4 @@ grid = CanvasGrid(agent_portrayal, 10, 10, 500, 500)
 server = ModularServer(WorldModel,
                        [grid],
                        "Bridge World",
-                       {"N": 5, "width": 10, "height": 10})
+                       {"N": 10, "width": 10, "height": 10})

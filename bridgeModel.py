@@ -21,6 +21,7 @@ Created on Tue Nov 14 10:23:01 2017
 #==============================================================================
 import numpy as np
 import random
+import itertools
 import matplotlib.pyplot as plt
 
 import mesa
@@ -42,19 +43,66 @@ class GridMap():
     def __init__(self, agentGrid):
 
        self.agentGrid = agentGrid
-       self.obstacleGrid = obstacleMap(agentGrid)
-       self.targetGrid = targetMap(agentGrid)
+       self.height = agentGrid.height
+       self.width = agentGrid.width
+       
+       self.obstacleGrid = self.obstacleMap()
+       self.targetGrid = self.targetMap()
         
        
     # Define the obstacle grid with forbidden locations
-    def obstacleMap(self,agentGrid):
-        
+    def obstacleMap(self):
+
+        obstacleGrid = []
+
+        for x in range(self.width):
+            col = []
+            for y in range(self.height):
+                state = self.isObstacle(x,y)
+                if(state):
+                    col.append(1)
+                else:
+                    col.append(0)
+            obstacleGrid.append(col)
+
+ 
         return(obstacleGrid)
+    
+
+    # Define the obstacle locations
+    def isObstacle(self,x,y):
+        
+        state = False
+        n = self.height
+        m = self.width
+        
+        b = np.ceil(m/3)# Bridge width
+        L = np.ceil(n/3) # Bridge Lenght
+        
+        r = np.ceil( ((m-b)/2) )
+        s = np.ceil( ((n-L)/2) )
+        
+        
+        if((0 <= x <= r) or (r+b <= x <= n)):
+            if(s <= y <= s+L):
+                state = True
+                                    
+        return(state)
+                
     
     
     # Define the target grid 
-    def targetMap(agentGrid):
-        
+    def targetMap(self):
+
+        targetGrid = []
+
+        for x in range(self.width):
+            col = []
+            for y in range(self.height):
+                col.append(None)
+            targetGrid.append(col)
+
+         
         return(targetGrid)
 #==============================================================================
 
@@ -87,6 +135,12 @@ class BridgeAgent(Agent):
     def randMove(self):               
         cell_list = self.model.grid.get_neighborhood(self.new_position,moore=False,include_center=True)
         cell_list.remove(self.pos)
+        
+        # Remove candidates with obstacles
+        for cell in cell_list:
+            if(self.model.obstacleMap[cell]==1):
+                cell_list.remove(cell)
+        
         move_competitors = self.model.grid.get_cell_list_contents(cell_list)
         
         who_else = []
@@ -95,11 +149,13 @@ class BridgeAgent(Agent):
                 who_else.append(a)                             
 
         if(len(who_else)>0):
-            self.model.grid.move_agent(self, self.pos)    
+            self.model.grid.move_agent(self, self.pos)                
             self.updatePenalty()
         else:    
-            self.model.grid.move_agent(self, self.new_position)  
-
+            if(self.model.obstacleMap[self.new_position]==0):
+                self.model.grid.move_agent(self, self.new_position)  
+            else:
+                self.model.grid.move_agent(self, self.pos)
 
     # Increase penalty by 1 if there is a collision
     def updatePenalty(self):
@@ -128,6 +184,8 @@ class WorldModel(Model):
         self.running = True
         self.num_agents = N
         self.grid = SingleGrid(width, height, False) # Non Toroidal World
+        self.mapGrid = GridMap(self.grid)
+        self.obstacleMap = np.matrix(self.mapGrid.obstacleGrid)
         self.schedule = SimultaneousActivation(self)
         # Create agents
         for i in range(self.num_agents):
@@ -136,8 +194,17 @@ class WorldModel(Model):
             # Add the agent to a random grid cell
             #x = random.randrange(self.grid.width)
             #y = random.randrange(self.grid.height)
-            #self.grid.place_agent(a, (x, y))
-            self.grid.position_agent(a, x="random", y="random")
+            #self.grid.place_agent(a, (x, y))            
+            #self.grid.position_agent(a, x="random", y="random")
+            
+            if(i%2 == 1):
+                y = 0
+                x = i%(self.grid.height) 
+                self.grid.place_agent(a,(x,y))
+            else:
+                y = width-1
+                x = i%(self.grid.height) 
+                self.grid.place_agent(a,(x,y))
             
         self.datacollector = DataCollector(
             #model_reporters={"Gini": compute_gini},
@@ -152,22 +219,26 @@ class WorldModel(Model):
 
 
 
+'''
+#%%
+
+import copy
+
+model = WorldModel(5,10,10)
+
+a = model.obstacleMap
+
+b = model.grid.get_neighborhood((0,2),moore = False)
 
 
+cell_list = copy.deepcopy(b)
 
+for cell in cell_list:
+    print(a[cell])
+    if(model.obstacleMap[cell]==1):
+        cell_list.remove(cell)
 
-
-
-
-
-
-
-
-
-
-
-
-
+'''
 
 
 
