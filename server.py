@@ -19,10 +19,11 @@ def agent_portrayal(agent):
                  "r": 0.5}
     return portrayal
 
-grid = CanvasGrid(agent_portrayal, 10, 10, 500, 500)
+grid = CanvasGrid(agent_portrayal, 20, 10, 1000, 500)
 
 
+# N can be max of 2*height
 server = ModularServer(WorldModel,
                        [grid],
                        "Bridge World",
-                       {"N": 10, "width": 10, "height": 10})
+                       {"N": 20, "width": 20, "height": 10})

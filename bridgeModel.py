@@ -73,18 +73,18 @@ class GridMap():
     def isObstacle(self,x,y):
         
         state = False
-        n = self.height
-        m = self.width
+        h = self.height
+        w = self.width
         
-        b = np.ceil(m/3)# Bridge width
-        L = np.ceil(n/3) # Bridge Lenght
+        b = np.ceil(h/3)# Bridge width
+        L = np.ceil(w/3) # Bridge Lenght
         
-        r = np.ceil( ((m-b)/2) )
-        s = np.ceil( ((n-L)/2) )
+        r = np.ceil( ((h-b)/2) )
+        s = np.ceil( ((w-L)/2) )
         
         
-        if((0 <= x <= r) or (r+b <= x <= n)):
-            if(s <= y <= s+L):
+        if((0 <= y <= r-1) or (r+b-1 <= y <= h)):
+            if(s-1 <= x <= s+L-1):
                 state = True
                                     
         return(state)
@@ -188,6 +188,8 @@ class WorldModel(Model):
         self.obstacleMap = np.matrix(self.mapGrid.obstacleGrid)
         self.schedule = SimultaneousActivation(self)
         # Create agents
+        oddCnt = 0
+        evenCnt = 0
         for i in range(self.num_agents):
             a = BridgeAgent(i, self)
             self.schedule.add(a)
@@ -196,14 +198,16 @@ class WorldModel(Model):
             #y = random.randrange(self.grid.height)
             #self.grid.place_agent(a, (x, y))            
             #self.grid.position_agent(a, x="random", y="random")
-            
+                        
             if(i%2 == 1):
-                y = 0
-                x = i%(self.grid.height) 
+                x = 0
+                y = oddCnt #i%(self.grid.height) 
+                oddCnt = oddCnt + 1 
                 self.grid.place_agent(a,(x,y))
             else:
-                y = width-1
-                x = i%(self.grid.height) 
+                x = self.grid.width-1
+                y = evenCnt #i%(self.grid.height) 
+                evenCnt = evenCnt + 1
                 self.grid.place_agent(a,(x,y))
             
         self.datacollector = DataCollector(
