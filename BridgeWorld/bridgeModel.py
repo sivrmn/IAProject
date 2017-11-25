@@ -38,8 +38,10 @@ from mesa.batchrunner import BatchRunner
 # Class for grid objects (obstacles, targets etc)
 #==============================================================================
 class GridMap():
-    
+
+    #--------------------------------------------------------------------------        
     # Initilize with agentGrid and add obstacles, targets etc
+    #--------------------------------------------------------------------------        
     def __init__(self, agentGrid):
 
        self.agentGrid = agentGrid
@@ -47,10 +49,12 @@ class GridMap():
        self.width = agentGrid.width
        
        self.obstacleGrid = self.obstacleMap()
-       self.targetGrid = self.targetMap()
-        
-       
+       self.targetGrid = self.targetMap()        
+    #--------------------------------------------------------------------------           
+
+    #--------------------------------------------------------------------------    
     # Define the obstacle grid with forbidden locations
+    #--------------------------------------------------------------------------    
     def obstacleMap(self):
 
         obstacleGrid = []
@@ -67,9 +71,11 @@ class GridMap():
 
  
         return(obstacleGrid)
+    #--------------------------------------------------------------------------            
     
-
+    #--------------------------------------------------------------------------    
     # Define the obstacle locations
+    #--------------------------------------------------------------------------    
     def isObstacle(self,x,y):
         
         state = False
@@ -88,10 +94,13 @@ class GridMap():
                 state = True
                                     
         return(state)
-                
+    #--------------------------------------------------------------------------                    
+
+
     
-    
+    #--------------------------------------------------------------------------        
     # Define the target grid 
+    #--------------------------------------------------------------------------    
     def targetMap(self):
 
         targetGrid = []
@@ -104,6 +113,8 @@ class GridMap():
 
          
         return(targetGrid)
+    #--------------------------------------------------------------------------    
+
 #==============================================================================
 
 #==============================================================================
@@ -111,14 +122,32 @@ class GridMap():
 #==============================================================================
 class BridgeAgent(Agent):
     
+
+    #--------------------------------------------------------------------------
     # Initialize all agents start with 0 penalty
+    #--------------------------------------------------------------------------        
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
         self.penalty = 0
+        
+        # Action space:
+        self.action_space = {}
+        self.action_space['Left']    = 0 # Left
+        self.action_space['Right']   = 1 # Right
+        self.action_space['Up']      = 2 # Up
+        self.action_space['Down']    = 3 # Down
+        self.action_space['Stay']    = 4 # Stay 
+        
+        self.action_space_n = len(self.action_space)        
+
+        self.action = self.action_space['Stay']
+    #--------------------------------------------------------------------------    
 
 
+    #--------------------------------------------------------------------------    
     # Function for deciding where to move, currently moves to a random unoccupied location
     # or stays put
+    #--------------------------------------------------------------------------        
     def randMoveDecision(self):
         local_steps = self.model.grid.get_neighborhood(self.pos,moore=False,include_center=False)
         
@@ -130,9 +159,61 @@ class BridgeAgent(Agent):
         
         self.new_position = random.choice(possible_steps)
         
+        return()
+    #--------------------------------------------------------------------------    
+
         
-    # Function for making one move in a random direction
-    def randMove(self):               
+    #--------------------------------------------------------------------------            
+    # Function for deciding on a move based on a given action, if new action leads to an 
+    # unoccupied location
+    #--------------------------------------------------------------------------    
+    def directedMoveDecision(self, action):      
+        
+        if(action == self.action_space['Left']):
+            self.new_position = (self.pos[0]-1, self.pos[1]+0)
+        elif(action == self.action_space['Right']):
+            self.new_position = (self.pos[0]+1, self.pos[1]+0)
+        elif(action == self.action_space['Up']):
+            self.new_position = (self.pos[0]+0, self.pos[1]+1)
+        elif(action == self.action_space['Down']):
+            self.new_position = (self.pos[0]+0, self.pos[1]-1)
+        elif(action == self.action_space['Stay']):
+            self.new_position = self.pos
+        else:            
+            print('Error- action not recongized')
+            return(-1)            
+        
+        local_steps = self.model.grid.get_neighborhood(self.pos,moore=False,include_center=True)
+
+        possible_steps = []
+        for lcl_pos in local_steps:
+            if(len(self.model.grid.get_cell_list_contents(lcl_pos)) == 0 ):
+                possible_steps.append(lcl_pos)
+        possible_steps.append(self.pos)
+        
+
+        if(not (self.new_position in local_steps)):
+            # Penalty for hitting a wall at a known locations? If yes, add here
+            self.new_position = self.pos
+
+        if(not (self.new_position in possible_steps)):
+            # Penalty for hitting an agent at a known locations? If yes, add here
+            self.new_position = self.pos
+            
+        if(self.model.obstacleMap[self.new_position]==1):
+            # Penalty for hitting an obstacle at a known locations? If yes, add here
+            self.new_position = self.pos
+            
+            
+        return()    
+    #--------------------------------------------------------------------------                
+                        
+            
+        
+    #--------------------------------------------------------------------------            
+    # Function for executing a decided move
+    #--------------------------------------------------------------------------    
+    def executeMove(self):               
         cell_list = self.model.grid.get_neighborhood(self.new_position,moore=False,include_center=True)
         cell_list.remove(self.pos)
         
@@ -154,49 +235,39 @@ class BridgeAgent(Agent):
         else:    
             if(self.model.obstacleMap[self.new_position]==0):
                 self.model.grid.move_agent(self, self.new_position)  
-            else:
+            else:                
                 self.model.grid.move_agent(self, self.pos)
 
-
-    # Function for making one move in a known direction
-    def directedMove(self, action):               
-        cell_list = self.model.grid.get_neighborhood(self.new_position,moore=False,include_center=True)
-        cell_list.remove(self.pos)
+        return()
+    #--------------------------------------------------------------------------            
+                
         
-        # Remove candidates with obstacles
-        for cell in cell_list:
-            if(self.model.obstacleMap[cell]==1):
-                cell_list.remove(cell)
-        
-        move_competitors = self.model.grid.get_cell_list_contents(cell_list)
-        
-        who_else = []
-        for a in move_competitors:
-            if(a.new_position == self.new_position):
-                who_else.append(a)                             
-
-        if(len(who_else)>0):
-            self.model.grid.move_agent(self, self.pos)                
-            self.updatePenalty()
-        else:    
-            if(self.model.obstacleMap[self.new_position]==0):
-                self.model.grid.move_agent(self, self.new_position)  
-            else:
-                self.model.grid.move_agent(self, self.pos)
-
+    #--------------------------------------------------------------------------    
     # Increase penalty by 1 if there is a collision
+    #--------------------------------------------------------------------------    
     def updatePenalty(self):
         self.penalty = self.penalty + 1      
+        return()
+    #--------------------------------------------------------------------------    
 
+
+    #--------------------------------------------------------------------------    
     # Function for defining all robot activity at each simulation step
+    #--------------------------------------------------------------------------    
     def step(self):
-        self.randMoveDecision()
-
-        
+        #self.randMoveDecision()
+        self.directedMoveDecision(self.action)
+        return()
+    #--------------------------------------------------------------------------            
+    
+    
+    #--------------------------------------------------------------------------        
     # Function for action execution
+    #--------------------------------------------------------------------------    
     def advance(self):
-        self.randMove()
-
+        self.executeMove()
+        return()
+    #--------------------------------------------------------------------------    
 
 #==============================================================================
 
@@ -206,7 +277,9 @@ class BridgeAgent(Agent):
 #==============================================================================
 class WorldModel(Model):
 
+    #--------------------------------------------------------------------------        
     # Initialize world with a number of agents
+    #--------------------------------------------------------------------------    
     def __init__(self, N, width, height):
         self.running = True
         self.num_agents = N
@@ -240,11 +313,18 @@ class WorldModel(Model):
         self.datacollector = DataCollector(
             #model_reporters={"Gini": compute_gini},
             agent_reporters={"Penalty": lambda a: a.penalty})
-
+    #--------------------------------------------------------------------------    
+    
+    
+    #--------------------------------------------------------------------------        
     # All activities to be done in the world at each step
+    #--------------------------------------------------------------------------    
     def step(self):
         self.datacollector.collect(self)
         self.schedule.step()
+        return()
+    #--------------------------------------------------------------------------    
+
         
 #==============================================================================
 
