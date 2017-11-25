@@ -129,6 +129,13 @@ class BridgeAgent(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
         self.penalty = 0
+        self.reward = 0
+        
+        # Target location
+        if(unique_id%2 == 1):
+            self.targetX = model.grid.width-1
+        else:
+            self.targetX = 0
         
         # Action space:
         self.action_space = {}
@@ -140,7 +147,15 @@ class BridgeAgent(Agent):
         
         self.action_space_n = len(self.action_space)        
 
+        # Default Action - no movement
         self.action = self.action_space['Stay']
+        
+        
+        # Penatly types
+        self.penalty_type = {}
+        self.penalty_type['AA'] = 1 # Agent to Agent
+        self.penalty_type['AO'] = 0 # Agent to Obstacle
+        self.penalty_type['AW'] = 0 # Agent to Wall
     #--------------------------------------------------------------------------    
 
 
@@ -231,12 +246,16 @@ class BridgeAgent(Agent):
 
         if(len(who_else)>0):
             self.model.grid.move_agent(self, self.pos)                
-            self.updatePenalty()
+            self.updatePenalty(self.penalty_type['AA'])
         else:    
             if(self.model.obstacleMap[self.new_position]==0):
                 self.model.grid.move_agent(self, self.new_position)  
             else:                
                 self.model.grid.move_agent(self, self.pos)
+                
+        
+        # Reset action to Stay 
+        self.action = self.action_space['Stay']
 
         return()
     #--------------------------------------------------------------------------            
@@ -245,10 +264,87 @@ class BridgeAgent(Agent):
     #--------------------------------------------------------------------------    
     # Increase penalty by 1 if there is a collision
     #--------------------------------------------------------------------------    
-    def updatePenalty(self):
-        self.penalty = self.penalty + 1      
+    def updatePenalty(self, penaltyIncrement):
+        self.penalty = self.penalty + penaltyIncrement      
         return()
     #--------------------------------------------------------------------------    
+ 
+    
+    #--------------------------------------------------------------------------    
+    # Update reward function
+    #--------------------------------------------------------------------------    
+    def getReward(self):
+        self.reward = -self.getEuclidDist() + (-self.penalty)      
+        return(self.reward)
+    #--------------------------------------------------------------------------  
+
+
+    #--------------------------------------------------------------------------    
+    # Obtain shortest Euclidean distance
+    #--------------------------------------------------------------------------    
+    def getEuclidDist(self):
+        dist = abs(self.pos[0] - self.targetX)
+        return(dist)
+    #--------------------------------------------------------------------------  
+
+
+    #--------------------------------------------------------------------------    
+    # Returns the current state of the agent (current state of the neighbourhood
+    # cells within a radius r) 
+    #--------------------------------------------------------------------------    
+    def getState(self, radius):
+        
+        # Neighbourhood cells
+        # radius+1 used as a tentative fix, mesa got the moore radius wrong
+        cell_list = self.model.grid.get_neighborhood(self.pos,moore=True,include_center=True, radius = radius+1)
+        
+        
+        # Agent locations
+        agent_list= self.model.grid.get_cell_list_contents(cell_list)
+        
+        agent_locs = []
+        for a in agent_list:
+            agent_locs.append(a.pos)
+            
+            
+        obs_list = []
+        # Obstacle locations
+        for cell in cell_list:
+            if(self.model.obstacleMap[cell]==1):
+                obs_list.append(cell)            
+        
+        m = 2*radius+1
+        state = np.matrix(np.zeros((m,m)))
+        
+        x_offset = self.pos[0] - radius
+        y_offset = self.pos[1] - radius
+           
+        for y in range(0,m):
+            for x in range(0,m):
+                xn = x + x_offset
+                yn = y + y_offset
+                
+                if((xn<0 or xn >= self.model.grid.height) or (yn<0 or yn >= self.model.grid.width)):
+                    state[x,m-y-1] = 2 # This is a wall        
+                else:
+                    if(not((xn,yn) in cell_list)): 
+                        state[x,m-y-1] = 3 # This is unobserved
+                    
+                    else:                             
+                        if((xn,yn) in obs_list):
+                            state[x,m-y-1] = 2 # This is an obstacle
+                                                
+                        if((xn,yn) in agent_locs):
+                            state[x,m-y-1] = 1 # This is an agent
+            
+                        if((xn,yn)==self.pos):
+                            state[x,m-y-1] = -1 # Self position
+                        
+        state = state.T
+                                                                                                        
+        
+        return(state)
+    #-------------------------------------------------------------------------- 
 
 
     #--------------------------------------------------------------------------    
