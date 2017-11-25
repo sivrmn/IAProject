@@ -157,6 +157,33 @@ class BridgeAgent(Agent):
             else:
                 self.model.grid.move_agent(self, self.pos)
 
+
+    # Function for making one move in a known direction
+    def directedMove(self, action):               
+        cell_list = self.model.grid.get_neighborhood(self.new_position,moore=False,include_center=True)
+        cell_list.remove(self.pos)
+        
+        # Remove candidates with obstacles
+        for cell in cell_list:
+            if(self.model.obstacleMap[cell]==1):
+                cell_list.remove(cell)
+        
+        move_competitors = self.model.grid.get_cell_list_contents(cell_list)
+        
+        who_else = []
+        for a in move_competitors:
+            if(a.new_position == self.new_position):
+                who_else.append(a)                             
+
+        if(len(who_else)>0):
+            self.model.grid.move_agent(self, self.pos)                
+            self.updatePenalty()
+        else:    
+            if(self.model.obstacleMap[self.new_position]==0):
+                self.model.grid.move_agent(self, self.new_position)  
+            else:
+                self.model.grid.move_agent(self, self.pos)
+
     # Increase penalty by 1 if there is a collision
     def updatePenalty(self):
         self.penalty = self.penalty + 1      
