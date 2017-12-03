@@ -292,7 +292,7 @@ class BridgeAgent(Agent):
     # Returns the current state of the agent (current state of the neighbourhood
     # cells within a radius r) 
     #--------------------------------------------------------------------------    
-    def getState(self, radius):
+    def getState(self, radius=2):
         
         # Neighbourhood cells
         # radius+1 used as a tentative fix, mesa got the moore radius wrong
@@ -379,6 +379,8 @@ class WorldModel(Model):
     def __init__(self, N, width, height):
         self.running = True
         self.num_agents = N
+        self.width = width
+        self.height = height
         self.grid = SingleGrid(width, height, False) # Non Toroidal World
         self.mapGrid = GridMap(self.grid)
         self.obstacleMap = np.matrix(self.mapGrid.obstacleGrid)
@@ -410,6 +412,77 @@ class WorldModel(Model):
             #model_reporters={"Gini": compute_gini},
             agent_reporters={"Penalty": lambda a: a.penalty})
     #--------------------------------------------------------------------------    
+    
+
+    
+    #--------------------------------------------------------------------------        
+    # End of game check
+    #--------------------------------------------------------------------------        
+    def isGameDone(self):
+        L = 0
+        for a in self.schedule.agents:
+            
+            L = a.getEuclidDist() + L    
+            
+        if(L==0):
+            gameDone = 1
+        else:
+            gameDone = 0
+            
+        return(gameDone)
+    #--------------------------------------------------------------------------        
+    
+    #--------------------------------------------------------------------------        
+    # Reset function
+    #--------------------------------------------------------------------------        
+    def reset(self):
+        # Create agents
+        oddCnt = 0
+        evenCnt = 0
+        for a in self.schedule.agents:
+            i = a.unique_id                        
+            if(i%2 == 1):
+                x = 0
+                y = oddCnt #i%(self.grid.height) 
+                oddCnt = oddCnt + 1 
+                self.grid.place_agent(a,(x,y))
+            else:
+                x = self.grid.width-1
+                y = evenCnt #i%(self.grid.height) 
+                evenCnt = evenCnt + 1
+                self.grid.place_agent(a,(x,y))
+        return()
+    #-------------------------------------------------------------------------- 
+
+
+
+    #--------------------------------------------------------------------------        
+    # All activities to be done in the world at each step
+    #-------------------------------------------------------------------------- 
+    def render(self):
+        evenAgents = []
+        oddAgents = []
+        
+        for agent in self.schedule.agents:
+            if(agent.unique_id % 2 == 0):
+                evenAgents.append(agent.pos)        
+            else:
+                oddAgents.append(agent.pos)
+                
+                
+        evenAgents = np.matrix(evenAgents)
+        oddAgents = np.matrix(oddAgents)      
+        
+        # Scatter plot of agents and obstacles
+        area = np.pi*(7)**2  # 15 point radii
+        plt.scatter(np.array(evenAgents[:,0]), np.array(evenAgents[:,1]),s=area, c='g', alpha=0.5)
+        plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
+        
+        plt.imshow(~self.obstacleMap.T,cmap='gray')
+        
+        return()
+    #--------------------------------------------------------------------------        
+    
     
     
     #--------------------------------------------------------------------------        

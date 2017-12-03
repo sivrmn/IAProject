@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time as time
 
+from  BridgeWorld.bridgeModel import WorldModel
 
 import gym
 
@@ -30,7 +31,6 @@ from keras.optimizers import SGD , Adam
 
 #==============================================================================
 
-
 #==============================================================================
 # Program Constants
 #==============================================================================
@@ -38,12 +38,12 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 500000 # Frames over which to anneal epsilon
+EXPLORE = 50000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # Final value of epsilon
-INITIAL_EPSILON = 0.3 # Starting value of epsilon
+INITIAL_EPSILON = 0.7 # Starting value of epsilon
 
 #-- Training parameters --#
-TRAIN_INTERVAL = 10
+TRAIN_INTERVAL = 100
 REPLAY_MEMORY = 200000 # Number of previous transitions to remember
 BATCH = 32 # Size of minibatch
 FRAME_PER_ACTION = 1
@@ -53,6 +53,8 @@ LEARNING_RATE = 1e-4
 #-- Reward selection --#
 REWARD_LOSS = -1
 REWARD_NOLOSS = 0.1
+REWARD_TOO_SLOW = 0
+REWARD_WELL_DONE = 100
 #==============================================================================
 
 
@@ -62,10 +64,10 @@ REWARD_NOLOSS = 0.1
 def build_model():
     print("Now we build the model")
     model = Sequential()
-    model.add(Dense(4, input_dim = 4, activation = 'relu'))
+    model.add(Dense(4, input_dim = 25, activation = 'relu'))
     model.add(Dense(8, activation = 'relu'))
     model.add(Dense(8, activation = 'relu'))
-    model.add(Dense(2, activation = 'relu'))
+    model.add(Dense(5, activation = 'relu'))
    
     adam = Adam(lr=LEARNING_RATE)
     model.compile(loss='mse',optimizer=adam)    
@@ -79,10 +81,10 @@ def build_model():
 #==============================================================================
 # Training the network
 #==============================================================================
-def train_network(model, env, init_s, modelName):
+def train_network(model, env, agent, init_s, modelName):
 
     #-- Program Constants --#
-    ACTIONS = env.action_space.n # Number of valid actions 
+    ACTIONS = env.schedule.agents[0].action_space_n # Number of valid actions 
     REND = 0
     RECORD_DIV = 1000
     #-----------------------------------------------------#
@@ -101,7 +103,7 @@ def train_network(model, env, init_s, modelName):
     Loss_Arr = np.zeros(np.int(EXPLORE/RECORD_DIV))
     
     s_t = init_s
-    s_t = np.array(s_t.reshape(1, s_t.shape[0]))
+    s_t = np.array(s_t.reshape(1, s_t.shape[0]*s_t.shape[1]))
 
     
     #-- Storage for replay memory --#
@@ -118,13 +120,13 @@ def train_network(model, env, init_s, modelName):
     while t < EXPLORE:
                        
         if done:        
-            s_t = env.reset()
-            s_t = np.array(s_t.reshape(1, s_t.shape[0]))
+            [env,agent] = resetGame()
+            s_t = agent.getState()
+            s_t = np.array(s_t.reshape(1, s_t.shape[0]*s_t.shape[1]))
             
-
         #-- Choosing an epsilong greedy action --#
         if np.random.random() <= epsilon:
-            a_t = env.action_space.sample()
+            a_t = random.sample(range(agent.action_space_n),1)[0]
         else:
             q = model.predict(s_t)
             max_Q = np.argmax(q)
@@ -137,27 +139,31 @@ def train_network(model, env, init_s, modelName):
             
 
         #observation, reward, done, info = env.step(action)
-        [s_t1, r_t, done, info] = env.step(a_t)
+        agent.action = a_t
+        env.step()
+        [s_t1, r_t] = [agent.getState(), agent.getReward()]
+        done = env.isGameDone()
       
         if(done == 1):
             if(lclT >= 499):
-                r_t = REWARD_NOLOSS
+                r_t = r_t + REWARD_TOO_SLOW#REWARD_NOLOSS
                 lclT = 0
+                [env, agent] = resetGame()
             else:
-                r_t = REWARD_LOSS
+                r_t = r_t + REWARD_WELL_DONE
                 lclT = 0
         else:
-            r_t = REWARD_NOLOSS
+            #r_t = REWARD_NOLOSS
             lclT = lclT + 1
    
-        s_t1 = np.array(s_t1.reshape(1, s_t1.shape[0]))
+        s_t1 = np.array(s_t1.reshape(1, s_t1.shape[0]*s_t1.shape[1]))
 
         D.append([s_t, a_t, r_t, s_t1, done])
 
         
         #-- Update graphics based on action taken --#
-        if(REND == 1):
-            env.render()
+        #if(REND == 1):
+        #    env.render()
                 
 
         
@@ -242,6 +248,24 @@ def load_model(model, file_name):
 
 
 
+
+#==============================================================================
+# Reset by recreating environment
+#==============================================================================
+def resetGame():
+    
+    height = 11
+    width = 11
+    noAgents = 1
+    env = WorldModel(noAgents, width, height) 
+    #stateRadius = 2
+    agent = env.schedule.agents[0]        
+
+    return(env, agent)
+#==============================================================================
+
+
+
 #==============================================================================
 # Select between model training and evaluation
 #==============================================================================
@@ -249,10 +273,14 @@ def deepQ(select, game, modelName):
     Q_Arr = 0
     Loss_Arr = 0
     if(select == 'Train'):
+        
         model = build_model()
-        env = gym.make(game)
-        init_s = env.reset()
-        [Q_Arr, Loss_Arr] = train_network(model, env, init_s, modelName)
+                 
+        [env, agent] = resetGame()
+
+        init_s = agent.getState() # Agent 0 selected
+        
+        [Q_Arr, Loss_Arr] = train_network(model, env, agent, init_s, modelName)
         
         plt.plot(Q_Arr)
         plt.figure()
