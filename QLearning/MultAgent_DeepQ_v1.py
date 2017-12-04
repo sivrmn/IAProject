@@ -38,12 +38,12 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 50000 # Frames over which to anneal epsilon
+EXPLORE = 500000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # Final value of epsilon
 INITIAL_EPSILON = 0.7 # Starting value of epsilon
 
 #-- Training parameters --#
-TRAIN_INTERVAL = 100
+TRAIN_INTERVAL = 10
 REPLAY_MEMORY = 200000 # Number of previous transitions to remember
 BATCH = 32 # Size of minibatch
 FRAME_PER_ACTION = 1

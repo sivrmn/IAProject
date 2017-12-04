@@ -351,8 +351,8 @@ class BridgeAgent(Agent):
     # Function for defining all robot activity at each simulation step
     #--------------------------------------------------------------------------    
     def step(self):
-        #self.randMoveDecision()
-        self.directedMoveDecision(self.action)
+        self.randMoveDecision()
+        #self.directedMoveDecision(self.action)
         return()
     #--------------------------------------------------------------------------            
     

@@ -50,9 +50,38 @@ oddAgents = np.matrix(oddAgents)
 
 
 
+#%%
+
+for i in range(100):
+    model.step()
+
+
+    evenAgents = []
+    oddAgents = []
+    
+    for agent in model.schedule.agents:
+        if(agent.unique_id % 2 == 0):
+            evenAgents.append(agent.pos)        
+        else:
+            oddAgents.append(agent.pos)
+            
+            
+    evenAgents = np.matrix(evenAgents)
+    oddAgents = np.matrix(oddAgents)      
+    
+    # Scatter plot of agents and obstacles
+    area = np.pi*(7)**2  # 15 point radii
+    plt.scatter(np.array(evenAgents[:,0]), np.array(evenAgents[:,1]),s=area, c='g', alpha=0.5)
+    plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
+    
+    plt.imshow(~model.obstacleMap.T,cmap='gray')
+
+
+
 
 #%%
     
+'''
 # Scatter plot of agents and obstacles
 plt.figure()  
 fig, ax = plt.subplots()
@@ -107,3 +136,5 @@ plt.ylim(-0.5,height-0.5)
 plt.xlim(-0.5,width-0.5)
 plt.savefig('BridgeWorldRandom.eps', bbox_inches='tight')
 plt.savefig('BridgeWorldRandom.png', bbox_inches='tight')
+
+'''
