@@ -154,8 +154,8 @@ class BridgeAgent(Agent):
         # Penatly types
         self.penalty_type = {}
         self.penalty_type['AA'] = -1 # Agent to Agent
-        self.penalty_type['AO'] = 0 # Agent to Obstacle
-        self.penalty_type['AW'] = 0 # Agent to Wall
+        self.penalty_type['AO'] = -0.5 # Agent to Obstacle
+        self.penalty_type['AW'] = -0.5 # Agent to Wall
     #--------------------------------------------------------------------------    
 
 
@@ -210,14 +210,17 @@ class BridgeAgent(Agent):
         if(not (self.new_position in local_steps)):
             # Penalty for hitting a wall at a known locations? If yes, add here
             self.new_position = self.pos
+            self.updatePenalty(self.penalty_type['AW'])
 
         if(not (self.new_position in possible_steps)):
             # Penalty for hitting an agent at a known locations? If yes, add here
             self.new_position = self.pos
             
+            
         if(self.model.obstacleMap[self.new_position]==1):
             # Penalty for hitting an obstacle at a known locations? If yes, add here
             self.new_position = self.pos
+            self.updatePenalty(self.penalty_type['AO'])
             
             
         return()    
@@ -248,9 +251,9 @@ class BridgeAgent(Agent):
             self.model.grid.move_agent(self, self.pos)                
             self.updatePenalty(self.penalty_type['AA'])
         else:    
-            if(self.model.obstacleMap[self.new_position]==0):
+            if(self.model.obstacleMap[self.new_position]==0):                
                 self.model.grid.move_agent(self, self.new_position)  
-            else:                
+            else:                                
                 self.model.grid.move_agent(self, self.pos)
                 
         

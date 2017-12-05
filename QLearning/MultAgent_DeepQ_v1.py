@@ -38,14 +38,14 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 1000000 # Frames over which to anneal epsilon
+EXPLORE = 50000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # Final value of epsilon
 INITIAL_EPSILON = 1.0 # Starting value of epsilon
 
 #-- Training parameters --#
-TRAIN_INTERVAL = 10
+TRAIN_INTERVAL = 500
 REPLAY_MEMORY = 200000 # Number of previous transitions to remember
-BATCH = 32 # Size of minibatch
+BATCH = 500 # Size of minibatch
 FRAME_PER_ACTION = 1
 LEARNING_RATE = 1e-4
 
@@ -209,14 +209,14 @@ def train_network(model, env, agent, init_s, modelName):
         t = t + 1
 
         #-- Saving progress every 1000 iterations --#
-        if((t % RECORD_DIV == 0) or (np.max(Q_sa)>=10)):
+        if((t % RECORD_DIV == 0) or (np.max(Q_sa)>=50)):
             print('Saving Model')
             model.save_weights(modelName+".h5", overwrite = True)
             with open(modelName+".json", "w") as outfile:
                 json.dump(model.to_json(), outfile)
                 
             # Local heuristic to stop if sufficiently high 'Q' is reached
-            if(np.max(Q_sa)>=10):
+            if(np.max(Q_sa)>=50):
                 t = EXPLORE
    
             
@@ -298,7 +298,7 @@ def deepQ(select, modelName):
         
         REND = 1        
         WATCHDOG = 50   
-        TRIALS = 5     
+        TRIALS = 1    
         
         #-- Evaluation --#
         avgT = np.zeros(TRIALS)
@@ -324,6 +324,7 @@ def deepQ(select, modelName):
                 #observation, reward, done, info = env.step(action)
                 
                 agent.action = action
+                print(action)
                 env.step()
                 [s_t, r_t] = [agent.getState(), agent.getReward()]
                 done = env.isGameDone()  
@@ -374,5 +375,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'model1')
+[Q_Arr, Loss_Arr] = deepQ('Test', 'model2')
 #==============================================================================
