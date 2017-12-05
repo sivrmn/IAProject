@@ -31,7 +31,7 @@ from mesa.batchrunner import BatchRunner
 # =============================================================================
 height = 11
 width = 11
-model = WorldModel(22, width, height)
+model = WorldModel(1, width, height)
 obstacleMap = model.obstacleMap
 
 evenAgents = []
@@ -52,10 +52,17 @@ oddAgents = np.matrix(oddAgents)
 
 #%%
 
-for i in range(100):
+#fig, ax = plt.subplots()
+#yticks = np.arange(-0.5, height+0.5, 1) 
+#xticks = np.arange(-0.5, width+0.5, 1) 
+
+
+for i in range(10):
     model.step()
-
-
+    model.render()
+    '''
+    plt.clf()
+    
     evenAgents = []
     oddAgents = []
     
@@ -71,12 +78,25 @@ for i in range(100):
     
     # Scatter plot of agents and obstacles
     area = np.pi*(7)**2  # 15 point radii
-    plt.scatter(np.array(evenAgents[:,0]), np.array(evenAgents[:,1]),s=area, c='g', alpha=0.5)
-    plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
+    if(np.size(evenAgents,0)>0):
+        plt.scatter(np.array(evenAgents[:,0]), np.array(evenAgents[:,1]),s=area, c='g', alpha=0.5)
+    if(np.size(oddAgents,0)>0):
+        plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
     
-    plt.imshow(~model.obstacleMap.T,cmap='gray')
+    
+    
+    plt.axes().set_yticks(yticks, minor=True)
+    plt.axes().set_xticks(xticks, minor=True)
+    plt.grid(which='minor')
+    plt.ylim(-0.5,height-0.5)
+    plt.xlim(-0.5,width-0.5)  
+    
+    plt.imshow(~model.obstacleMap.T,cmap='gray')        
+    
+    plt.pause(0.001)
 
-
+    
+    '''
 
 
 #%%

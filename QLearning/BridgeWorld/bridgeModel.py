@@ -153,7 +153,7 @@ class BridgeAgent(Agent):
         
         # Penatly types
         self.penalty_type = {}
-        self.penalty_type['AA'] = 1 # Agent to Agent
+        self.penalty_type['AA'] = -1 # Agent to Agent
         self.penalty_type['AO'] = 0 # Agent to Obstacle
         self.penalty_type['AW'] = 0 # Agent to Wall
     #--------------------------------------------------------------------------    
@@ -265,7 +265,7 @@ class BridgeAgent(Agent):
     # Increase penalty by 1 if there is a collision
     #--------------------------------------------------------------------------    
     def updatePenalty(self, penaltyIncrement):
-        self.penalty = self.penalty + penaltyIncrement      
+        self.penalty = penaltyIncrement #self.penalty + penaltyIncrement      
         return()
     #--------------------------------------------------------------------------    
  
@@ -274,7 +274,7 @@ class BridgeAgent(Agent):
     # Update reward function
     #--------------------------------------------------------------------------    
     def getReward(self):
-        self.reward = -self.getEuclidDist() + (-self.penalty)      
+        self.reward = -0.1*self.getEuclidDist() + self.penalty      
         return(self.reward)
     #--------------------------------------------------------------------------  
 
@@ -351,8 +351,8 @@ class BridgeAgent(Agent):
     # Function for defining all robot activity at each simulation step
     #--------------------------------------------------------------------------    
     def step(self):
-        self.randMoveDecision()
-        #self.directedMoveDecision(self.action)
+        #self.randMoveDecision()
+        self.directedMoveDecision(self.action)
         return()
     #--------------------------------------------------------------------------            
     
@@ -384,7 +384,10 @@ class WorldModel(Model):
         self.grid = SingleGrid(width, height, False) # Non Toroidal World
         self.mapGrid = GridMap(self.grid)
         self.obstacleMap = np.matrix(self.mapGrid.obstacleGrid)
-        self.schedule = SimultaneousActivation(self)
+        self.schedule = SimultaneousActivation(self)                
+        self.yticks = np.arange(-0.5, height+0.5, 1) 
+        self.xticks = np.arange(-0.5, width+0.5, 1) 
+
         # Create agents
         oddCnt = 0
         evenCnt = 0
@@ -460,6 +463,7 @@ class WorldModel(Model):
     # All activities to be done in the world at each step
     #-------------------------------------------------------------------------- 
     def render(self):
+        plt.clf()
         evenAgents = []
         oddAgents = []
         
@@ -475,10 +479,22 @@ class WorldModel(Model):
         
         # Scatter plot of agents and obstacles
         area = np.pi*(7)**2  # 15 point radii
-        plt.scatter(np.array(evenAgents[:,0]), np.array(evenAgents[:,1]),s=area, c='g', alpha=0.5)
-        plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
+        if(np.size(evenAgents,1)>0):
+            plt.scatter(np.array(evenAgents[:,0]), np.array(evenAgents[:,1]),s=area, c='g', alpha=0.5)
+        if(np.size(oddAgents,1)>0):
+            plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
         
-        plt.imshow(~self.obstacleMap.T,cmap='gray')
+        
+        
+        plt.axes().set_yticks(self.yticks, minor=True)
+        plt.axes().set_xticks(self.xticks, minor=True)
+        plt.grid(which='minor')
+        plt.ylim(-0.5,self.height-0.5)
+        plt.xlim(-0.5,self.width-0.5)  
+        
+        plt.imshow(~self.obstacleMap.T,cmap='gray')        
+        
+        plt.pause(0.001)
         
         return()
     #--------------------------------------------------------------------------        

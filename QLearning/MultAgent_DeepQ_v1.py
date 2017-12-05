@@ -38,9 +38,9 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 500000 # Frames over which to anneal epsilon
+EXPLORE = 1000000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # Final value of epsilon
-INITIAL_EPSILON = 0.7 # Starting value of epsilon
+INITIAL_EPSILON = 1.0 # Starting value of epsilon
 
 #-- Training parameters --#
 TRAIN_INTERVAL = 10
@@ -51,9 +51,9 @@ LEARNING_RATE = 1e-4
 
 
 #-- Reward selection --#
-REWARD_LOSS = -1
-REWARD_NOLOSS = 0.1
-REWARD_TOO_SLOW = 0
+REWARD_LOSS = -10
+REWARD_NOLOSS = 0
+REWARD_TOO_SLOW = -100
 REWARD_WELL_DONE = 100
 #==============================================================================
 
@@ -64,9 +64,9 @@ REWARD_WELL_DONE = 100
 def build_model():
     print("Now we build the model")
     model = Sequential()
-    model.add(Dense(4, input_dim = 25, activation = 'relu'))
-    model.add(Dense(8, activation = 'relu'))
-    model.add(Dense(8, activation = 'relu'))
+    model.add(Dense(5, input_dim = 25, activation = 'relu'))
+    model.add(Dense(5, activation = 'relu'))
+    model.add(Dense(5, activation = 'relu'))
     model.add(Dense(5, activation = 'relu'))
    
     adam = Adam(lr=LEARNING_RATE)
@@ -162,8 +162,10 @@ def train_network(model, env, agent, init_s, modelName):
 
         
         #-- Update graphics based on action taken --#
-        #if(REND == 1):
-        #    env.render()
+        if(REND == 1):
+            if(t>OBSERVATION):
+                if(t% RECORD_DIV > 900):
+                    env.render()
                 
 
         
@@ -207,7 +209,7 @@ def train_network(model, env, agent, init_s, modelName):
         t = t + 1
 
         #-- Saving progress every 1000 iterations --#
-        if t % RECORD_DIV == 0:
+        if((t % RECORD_DIV == 0) or (np.max(Q_sa)>=10)):
             print('Saving Model')
             model.save_weights(modelName+".h5", overwrite = True)
             with open(modelName+".json", "w") as outfile:
@@ -254,8 +256,8 @@ def load_model(model, file_name):
 #==============================================================================
 def resetGame():
     
-    height = 11
-    width = 11
+    height = 5
+    width = 5
     noAgents = 1
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
@@ -269,7 +271,7 @@ def resetGame():
 #==============================================================================
 # Select between model training and evaluation
 #==============================================================================
-def deepQ(select, game, modelName):
+def deepQ(select, modelName):
     Q_Arr = 0
     Loss_Arr = 0
     if(select == 'Train'):
@@ -289,49 +291,82 @@ def deepQ(select, game, modelName):
     elif(select == 'Test'):
                 
         model = build_model()
-        env = gym.make(game)
+        [env, agent] = resetGame()
         
         file_name = modelName+".h5"
         load_model(model, file_name)
-                                
+        
+        REND = 1        
+        WATCHDOG = 50   
+        TRIALS = 5     
+        
         #-- Evaluation --#
-        avgT = np.zeros(10)
-        avgTR = np.zeros(10)
-        for i_episode in range(10):
-            observation = env.reset()
+        avgT = np.zeros(TRIALS)
+        avgTR = np.zeros(TRIALS)
+        for i_episode in range(TRIALS):
+            [env, agent] = resetGame()
+            observation = agent.getState()
+            
+            #observation = env.reset()
             t = 0
+            totR = 0
             done = 0
             while(done == 0):
-                env.render()
+                if(REND == 1):
+                    env.render()
                 ## play the game with model
-                s_t = observation.reshape(1, observation.shape[0])
+                
+                s_t = np.array(observation.reshape(1, observation.shape[0]*observation.shape[1]))
+                #s_t = observation.reshape(1, observation.shape[0])
                 q = model.predict(s_t)
                 action = np.argmax(q)
-                observation, reward, done, info = env.step(action)
+                              
+                #observation, reward, done, info = env.step(action)
+                
+                agent.action = action
+                env.step()
+                [s_t, r_t] = [agent.getState(), agent.getReward()]
+                done = env.isGameDone()  
                 t = t + 1
-                if done:
-                    print("Survival time =  {} timesteps".format(t))
-                    avgT[i_episode] = t
+                totR = totR + r_t
+                if(done or (t > WATCHDOG)):
+                    print("Cumulative Reward =  {}".format(totR))
+                    avgT[i_episode] = totR
+                    [env, agent] = resetGame()
+                    break
 
-        for i_episode in range(10):
-            observation = env.reset()
+
+        for i_episode in range(TRIALS):
+            observation = agent.getState()
             t = 0
+            totR = 0
             done = 0
             while(done == 0):
-                env.render()
+                if(REND == 1):
+                    env.render()
         
                 ## play the game randomly
-                action = env.action_space.sample()
-                observation, reward, done, info = env.step(action)
+                #action = env.action_space.sample()
+                action = random.sample(range(agent.action_space_n),1)[0]
+                #observation, reward, done, info = env.step(action)
+                agent.action = action
+                env.step()
+                [s_t, r_t] = [agent.getState(), agent.getReward()]
+                done = env.isGameDone()                  
                 t = t + 1
-                if done:
-                    print("Survival time =  {} timesteps".format(t))
-                    avgTR[i_episode] = t
+                totR = totR + r_t
+                if(done or (t > WATCHDOG)):
+                    print("Cumulative Reward =  {}".format(totR))
+                    avgTR[i_episode] = totR
+                    [env, agent] = resetGame()
+                    break
+            
         print("\n")
         print("Average Peformances")
-        print("Average RL survival time = {} timesteps".format(np.mean(avgT)))   
-        print("Average Random survival time = {} timesteps".format(np.mean(avgTR)))
-        print("Percentage improvement = {}".format((np.mean(avgT)*100)/(np.mean(avgTR))))
+        print("Average RL reward = {}".format(np.mean(avgT)))   
+        print("Average Random reward = {}".format(np.mean(avgTR)))
+        percentImprove = ((np.mean(avgT) - np.mean(avgTR))/abs((np.mean(avgTR)) ))*100
+        print("Percentage improvement = {}".format(percentImprove) )
     return(Q_Arr, Loss_Arr)
 #==============================================================================
 
@@ -339,5 +374,5 @@ def deepQ(select, game, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Train', 'CartPole-v1', 'model2')
+[Q_Arr, Loss_Arr] = deepQ('Test', 'model1')
 #==============================================================================
