@@ -38,14 +38,14 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 50000 # Frames over which to anneal epsilon
+EXPLORE = 15000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # Final value of epsilon
 INITIAL_EPSILON = 1.0 # Starting value of epsilon
 
 #-- Training parameters --#
-TRAIN_INTERVAL = 500
+TRAIN_INTERVAL = 100
 REPLAY_MEMORY = 200000 # Number of previous transitions to remember
-BATCH = 500 # Size of minibatch
+BATCH = 1000 # Size of minibatch
 FRAME_PER_ACTION = 1
 LEARNING_RATE = 1e-4
 
@@ -64,10 +64,10 @@ REWARD_WELL_DONE = 100
 def build_model():
     print("Now we build the model")
     model = Sequential()
-    model.add(Dense(5, input_dim = 25, activation = 'relu'))
-    model.add(Dense(5, activation = 'relu'))
-    model.add(Dense(5, activation = 'relu'))
-    model.add(Dense(5, activation = 'relu'))
+    model.add(Dense(4, input_dim = 25, activation = 'relu'))
+    #model.add(Dense(5, activation = 'relu'))
+    #model.add(Dense(5, activation = 'relu'))
+    #model.add(Dense(4, activation = 'relu'))
    
     adam = Adam(lr=LEARNING_RATE)
     model.compile(loss='mse',optimizer=adam)    
@@ -296,16 +296,16 @@ def deepQ(select, modelName):
         file_name = modelName+".h5"
         load_model(model, file_name)
         
-        REND = 1        
+        REND = 1       
         WATCHDOG = 50   
-        TRIALS = 1    
+        TRIALS = 3   
         
         #-- Evaluation --#
         avgT = np.zeros(TRIALS)
         avgTR = np.zeros(TRIALS)
         for i_episode in range(TRIALS):
             [env, agent] = resetGame()
-            observation = agent.getState()
+            s_t = agent.getState()
             
             #observation = env.reset()
             t = 0
@@ -314,9 +314,10 @@ def deepQ(select, modelName):
             while(done == 0):
                 if(REND == 1):
                     env.render()
+                    time.sleep(0.3)
                 ## play the game with model
                 
-                s_t = np.array(observation.reshape(1, observation.shape[0]*observation.shape[1]))
+                s_t = np.array(s_t.reshape(1, s_t.shape[0]*s_t.shape[1]))
                 #s_t = observation.reshape(1, observation.shape[0])
                 q = model.predict(s_t)
                 action = np.argmax(q)
@@ -375,5 +376,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'model2')
+[Q_Arr, Loss_Arr] = deepQ('Test', 'model1')
 #==============================================================================

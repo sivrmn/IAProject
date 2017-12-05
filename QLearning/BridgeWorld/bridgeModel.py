@@ -143,12 +143,12 @@ class BridgeAgent(Agent):
         self.action_space['Right']   = 1 # Right
         self.action_space['Up']      = 2 # Up
         self.action_space['Down']    = 3 # Down
-        self.action_space['Stay']    = 4 # Stay 
+        #self.action_space['Stay']    = 4 # Stay 
         
         self.action_space_n = len(self.action_space)        
 
         # Default Action - no movement
-        self.action = self.action_space['Stay']
+        self.action = self.action_space['Left']
         
         
         # Penatly types
@@ -258,7 +258,7 @@ class BridgeAgent(Agent):
                 
         
         # Reset action to Stay 
-        self.action = self.action_space['Stay']
+        self.action = self.action_space['Left']
 
         return()
     #--------------------------------------------------------------------------            
