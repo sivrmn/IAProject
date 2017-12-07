@@ -410,7 +410,7 @@ class WorldModel(Model):
                 self.grid.place_agent(a,(x,y))
             else:
                 x = self.grid.width-1
-                y = evenCnt+4 #i%(self.grid.height) 
+                y = evenCnt+0 #i%(self.grid.height) 
                 evenCnt = evenCnt + 1
                 self.grid.place_agent(a,(x,y))
             
