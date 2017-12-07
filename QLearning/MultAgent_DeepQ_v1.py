@@ -38,14 +38,14 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 15000 # Frames over which to anneal epsilon
-FINAL_EPSILON = 0.05 # Final value of epsilon
-INITIAL_EPSILON = 1.0 # Starting value of epsilon
+EXPLORE = 100000 # Frames over which to anneal epsilon
+FINAL_EPSILON = 0.0001 # Final value of epsilon
+INITIAL_EPSILON = 1 # Starting value of epsilon
 
 #-- Training parameters --#
-TRAIN_INTERVAL = 100
-REPLAY_MEMORY = 200000 # Number of previous transitions to remember
-BATCH = 1000 # Size of minibatch
+TRAIN_INTERVAL = 50
+REPLAY_MEMORY = 20000 # Number of previous transitions to remember
+BATCH = 500 # Size of minibatch
 FRAME_PER_ACTION = 1
 LEARNING_RATE = 1e-4
 
@@ -53,8 +53,8 @@ LEARNING_RATE = 1e-4
 #-- Reward selection --#
 REWARD_LOSS = -10
 REWARD_NOLOSS = 0
-REWARD_TOO_SLOW = -100
-REWARD_WELL_DONE = 100
+REWARD_TOO_SLOW = -1
+REWARD_WELL_DONE = 1
 #==============================================================================
 
 
@@ -64,10 +64,10 @@ REWARD_WELL_DONE = 100
 def build_model():
     print("Now we build the model")
     model = Sequential()
-    model.add(Dense(4, input_dim = 25, activation = 'relu'))
+    model.add(Dense(5, input_dim = 25, activation = 'relu'))
+    model.add(Dense(5, activation = 'relu'))
     #model.add(Dense(5, activation = 'relu'))
-    #model.add(Dense(5, activation = 'relu'))
-    #model.add(Dense(4, activation = 'relu'))
+    model.add(Dense(4, activation = 'relu'))
    
     adam = Adam(lr=LEARNING_RATE)
     model.compile(loss='mse',optimizer=adam)    
@@ -209,14 +209,14 @@ def train_network(model, env, agent, init_s, modelName):
         t = t + 1
 
         #-- Saving progress every 1000 iterations --#
-        if((t % RECORD_DIV == 0) or (np.max(Q_sa)>=50)):
+        if((t % RECORD_DIV == 0) or (np.max(Q_sa)>=50000)):
             print('Saving Model')
             model.save_weights(modelName+".h5", overwrite = True)
             with open(modelName+".json", "w") as outfile:
                 json.dump(model.to_json(), outfile)
                 
             # Local heuristic to stop if sufficiently high 'Q' is reached
-            if(np.max(Q_sa)>=50):
+            if(np.max(Q_sa)>=50000):
                 t = EXPLORE
    
             
@@ -376,5 +376,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'model1')
+[Q_Arr, Loss_Arr] = deepQ('Train', 'longmodel2')
 #==============================================================================
