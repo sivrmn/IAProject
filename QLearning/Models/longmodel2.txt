@@ -65,7 +65,7 @@ def build_model():
     print("Now we build the model")
     model = Sequential()
     model.add(Dense(25, input_dim = 25, activation = 'relu', kernel_initializer='he_uniform'))
-    model.add(Dense(25, activation = 'relu', kernel_initializer='he_uniform'))
+    model.add(Dense(15, activation = 'relu', kernel_initializer='he_uniform'))
     #model.add(Dense(10, activation = 'relu', kernel_initializer='he_uniform'))
     model.add(Dense(4, activation = 'linear', kernel_initializer='he_uniform'))
    
@@ -382,5 +382,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'longmodel3')
+[Q_Arr, Loss_Arr] = deepQ('Train', 'longmodel2')
 #==============================================================================
