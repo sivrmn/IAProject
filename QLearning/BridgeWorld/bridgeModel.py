@@ -154,8 +154,8 @@ class BridgeAgent(Agent):
         # Penatly types
         self.penalty_type = {}
         self.penalty_type['AA'] = -1 # Agent to Agent
-        self.penalty_type['AO'] = -0.5 # Agent to Obstacle
-        self.penalty_type['AW'] = -0.5 # Agent to Wall
+        self.penalty_type['AO'] = -5#-0.5 # Agent to Obstacle
+        self.penalty_type['AW'] = -5#-0.5 # Agent to Wall
     #--------------------------------------------------------------------------    
 
 
@@ -277,7 +277,10 @@ class BridgeAgent(Agent):
     # Update reward function
     #--------------------------------------------------------------------------    
     def getReward(self):
-        self.reward = -0.1*self.getEuclidDist() + self.penalty      
+        if(self.getEuclidDist() == 0):
+            self.reward = 100 + self.penalty 
+        else:
+            self.reward = -5*self.getEuclidDist() + self.penalty      
         return(self.reward)
     #--------------------------------------------------------------------------  
 
@@ -290,7 +293,7 @@ class BridgeAgent(Agent):
         return(dist)
     #--------------------------------------------------------------------------  
 
-
+    '''
     #--------------------------------------------------------------------------    
     # Returns the current state of the agent (current state of the neighbourhood
     # cells within a radius r) 
@@ -348,7 +351,69 @@ class BridgeAgent(Agent):
         
         return(state)
     #-------------------------------------------------------------------------- 
+    '''
 
+    #--------------------------------------------------------------------------    
+    # Returns the current state of the agent (current state of the neighbourhood
+    # cells within a radius r) + send the coordinates of the robot + target
+    #--------------------------------------------------------------------------    
+    def getState(self, radius=1):
+        
+        # Neighbourhood cells
+        # radius+1 used as a tentative fix, mesa got the moore radius wrong
+        cell_list = self.model.grid.get_neighborhood(self.pos,moore=True,include_center=True, radius = radius+1)
+        
+        
+        # Agent locations
+        agent_list= self.model.grid.get_cell_list_contents(cell_list)
+        
+        agent_locs = []
+        for a in agent_list:
+            agent_locs.append(a.pos)
+            
+            
+        obs_list = []
+        # Obstacle locations
+        for cell in cell_list:
+            if(self.model.obstacleMap[cell]==1):
+                obs_list.append(cell)            
+        
+        m = 2*radius+1
+        state = np.matrix(np.zeros((m,m)))
+        
+        x_offset = self.pos[0] - radius
+        y_offset = self.pos[1] - radius
+           
+        for y in range(0,m):
+            for x in range(0,m):
+                xn = x + x_offset
+                yn = y + y_offset
+                
+                if((xn<0 or xn >= self.model.grid.height) or (yn<0 or yn >= self.model.grid.width)):
+                    state[x,m-y-1] = 2 # This is a wall        
+                else:
+                    if(not((xn,yn) in cell_list)): 
+                        state[x,m-y-1] = 3 # This is unobserved
+                    
+                    else:                             
+                        if((xn,yn) in obs_list):
+                            state[x,m-y-1] = 2 # This is an obstacle
+                                                
+                        if((xn,yn) in agent_locs):
+                            state[x,m-y-1] = 1 # This is an agent
+            
+                        if((xn,yn)==self.pos):
+                            state[x,m-y-1] = -1 # Self position
+                        
+        state = state.T
+                                          
+
+        (x,y) = self.pos
+        targX =  self.targetX                                                         
+        
+        return(state,x,y,targX)
+    #-------------------------------------------------------------------------- 
+    
 
     #--------------------------------------------------------------------------    
     # Function for defining all robot activity at each simulation step
