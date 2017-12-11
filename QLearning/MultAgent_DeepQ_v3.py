@@ -338,7 +338,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents =2
+    noAgents = 4
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -402,7 +402,9 @@ def deepQ(select, modelName):
                 if(done or (t > WATCHDOG)):
                     if(REND == 1):
                         env.render()
-                        time.sleep(0.5)                    
+                        time.sleep(0.5)      
+                        if(t==0):
+                            time.sleep(3)
                     print("Cumulative Reward =  {}".format(totR))
                     avgT[i_episode] = totR
                     [env, agents] = resetGame()
@@ -446,5 +448,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'twoAgentModel4')
+[Q_Arr, Loss_Arr] = deepQ('Train', 'twoAgentModel8')
 #==============================================================================
