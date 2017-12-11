@@ -38,9 +38,9 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 200000 # Frames over which to anneal epsilon
+EXPLORE = 500000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.0001 # Final value of epsilon
-INITIAL_EPSILON = 0.5 # Starting value of epsilon
+INITIAL_EPSILON = 1 # Starting value of epsilon
 
 #-- Training parameters --#
 TRAIN_INTERVAL = 50
@@ -271,8 +271,8 @@ def load_model(model, file_name):
 #==============================================================================
 def resetGame():
     
-    height = 5
-    width = 5
+    height = 11
+    width = 11
     noAgents = 1
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
@@ -400,5 +400,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'coordModel1')
+[Q_Arr, Loss_Arr] = deepQ('Test', 'coordModel4')
 #==============================================================================
