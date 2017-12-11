@@ -62,7 +62,7 @@ REWARD_WELL_DONE = 0#100
 # Building Q-Function model structure
 #==============================================================================
 def build_model():
-    print("Now we build the model")
+    print("Building Model")
     model = Sequential()
     model.add(Dense(30, input_dim = 9+3, activation = 'relu', kernel_initializer='he_uniform'))
     model.add(Dense(30, activation = 'relu', kernel_initializer='he_uniform'))
@@ -72,7 +72,8 @@ def build_model():
     adam = Adam(lr=LEARNING_RATE)
     model.compile(loss='mse',optimizer=adam)    
     #model.compile(loss = 'mse', optimizer = 'sgd')
-    print("We finish building the model")
+    print("Model Summary")
+    model.summary()
     return model    
 #==============================================================================
 
@@ -103,11 +104,7 @@ def train_network(model, env, agents, modelName):
     Loss_Arr = np.zeros(np.int(EXPLORE/RECORD_DIV))
     
     s_t1 = processStates(agents)
-    #[s_t1A1, s_t1A2] = processStates(agents)  
-#    (s_t,x,y,targX) = agent.getState()
-#    s_t = np.array(s_t.reshape(1, s_t.shape[0]*s_t.shape[1]))    
-#    s_t = np.append(s_t,[x,y,targX])
-#    s_t = np.array(s_t.reshape(1,s_t.shape[0]))
+
     
     #-- Storage for replay memory --#
     D = deque()
@@ -124,27 +121,14 @@ def train_network(model, env, agents, modelName):
                        
         if done:        
             [env,agents] = resetGame()
-            s_t1 = processStates(agents)
-            #[s_t1A1, s_t1A2] = processStates(agents)  
-            #(s_t,x,y,targX) = agent.getState()
-            #s_t = agent.getState()
-            #s_t = np.array(s_t.reshape(1, s_t.shape[0]*s_t.shape[1]))
-            #s_t = np.append(s_t,[x,y,targX])
-            #s_t = np.array(s_t.reshape(1,s_t.shape[0]))            
+            s_t1 = processStates(agents)       
             
         #-- Choosing an epsilong greedy action --#
         if np.random.random() <= epsilon:
-            a_t = []
-            a_t.append(random.sample(range(agents[0].action_space_n),1)[0])
-            a_t.append(random.sample(range(agents[1].action_space_n),1)[0])
+            a_t = takeRandomActions(agents)            
         else:
             a_t = predictActions(model,s_t1)
 
-            #q = model.predict(s_t1A1)
-            #a_tA1 = np.argmax(q)
-            #q = model.predict(s_t1A2)
-            #a_tA2 = np.argmax(q)
-            #a_t = [a_tA1, a_tA2]
         
         #-- Exploration annealing --#
         if epsilon > FINAL_EPSILON:
@@ -153,46 +137,31 @@ def train_network(model, env, agents, modelName):
 
         #observation, reward, done, info = env.step(action)
         takeActions(agents,a_t)
-        #agent.action = a_t
         env.step()
         s_t2 = processStates(agents)
-        #[s_t2A1, s_t2A2] = processStates(agents) 
-        #(s_t1,x,y,targX) = agent.getState()
-        #s_t1 = np.array(s_t1.reshape(1, s_t1.shape[0]*s_t1.shape[1]))
-        #s_t1 = np.append(s_t1,[x,y,targX])
-        #s_t1 = np.array(s_t1.reshape(1,s_t1.shape[0])) 
-        
-        rewards = getRewards(agents)
-        #r_t = agent.getReward()
-        #[s_t1, r_t] = [agent.getState(), agent.getReward()]
+        r_t = getRewards(agents)
         done = env.isGameDone()
       
         if(done == 1):
             if(lclT >= 100): #499 before
-                rewards = rewards +  REWARD_TOO_SLOW
-                #r_t = r_t + REWARD_TOO_SLOW#REWARD_NOLOSS
+                r_t = r_t +  REWARD_TOO_SLOW
                 lclT = 0
                 [env, agents] = resetGame()
             else:
-                rewards = rewards + REWARD_WELL_DONE
-                #r_t = r_t + REWARD_WELL_DONE
+                r_t = r_t + REWARD_WELL_DONE
                 lclT = 0
 
         else:
             if(lclT >= 100):
-                rewards = rewards + REWARD_WELL_DONE
-                #r_t = r_t + REWARD_WELL_DONE
+                r_t = r_t + REWARD_WELL_DONE
                 [env, agents] = resetGame()
                 lclT = 0
             else:
-                #r_t = REWARD_NOLOSS
                 lclT = lclT + 1
    
      
-        
-        D.append([s_t1[0], a_t[0], rewards[0], s_t2[0], done])
-        D.append([s_t1[1], a_t[1], rewards[1], s_t2[1], done])
-        
+        D = updateReplayMemory(D,s_t1,a_t,r_t,s_t2,done)
+                    
         #-- Update graphics based on action taken --#
         if(REND == 1):
             if(t>OBSERVATION):
@@ -258,7 +227,7 @@ def train_network(model, env, agents, modelName):
             Loss_Arr[rcdCnt] = loss
             rcdCnt = rcdCnt + 1
             
-            print("TIMESTEP", t, "/ EPSILON", np.round(epsilon,3), "/ ACTION", a_t, "/ REWARD", rewards,  "/ Q_MAX " , np.max(Q_sa), "/ Loss ", loss)
+            print("TIMESTEP", t, "/ EPSILON", np.round(epsilon,3), "/ ACTION", a_t, "/ REWARD", r_t,  "/ Q_MAX " , np.max(Q_sa), "/ Loss ", loss)
                     
     end_time = time.time()
     print('Execution time')
@@ -278,24 +247,6 @@ def load_model(model, file_name):
     model.load_weights(file_name)
     #model.compile(loss = 'mse', optimizer = 'sgd')
     return model    
-#==============================================================================
-
-
-
-
-#==============================================================================
-# Reset by recreating environment
-#==============================================================================
-def resetGame():
-    
-    height = 11
-    width = 11
-    noAgents = 2
-    env = WorldModel(noAgents, width, height) 
-    #stateRadius = 2
-    agents = env.schedule.agents       
-
-    return(env, agents)
 #==============================================================================
 
 
@@ -335,7 +286,7 @@ def takeRandomActions(agents):
     a_t = []
     for a in agents:
         a_t.append(random.sample(range(agents[0].action_space_n),1)[0]) 
-    print(a_t)
+    #print(a_t)
     return(a_t)
 #==============================================================================
 
@@ -367,6 +318,34 @@ def predictActions(model,s_t):
 #==============================================================================
 
 
+#==============================================================================
+# Updating replay memory
+#==============================================================================
+def updateReplayMemory(D,s_t1,a_t,r_t,s_t2,done):
+    cntA = 0    
+    for s in s_t1:
+        D.append([s_t1[cntA], a_t[cntA], r_t[cntA], s_t2[cntA], done])
+        cntA = cntA + 1
+        
+    return(D)
+#==============================================================================
+
+
+#==============================================================================
+# Reset by recreating environment
+#==============================================================================
+def resetGame():
+    
+    height = 11
+    width = 11
+    noAgents = 2
+    env = WorldModel(noAgents, width, height) 
+    #stateRadius = 2
+    agents = env.schedule.agents       
+
+    return(env, agents)
+#==============================================================================
+
 
 #==============================================================================
 # Select between model training and evaluation
@@ -376,11 +355,8 @@ def deepQ(select, modelName):
     Loss_Arr = 0
     if(select == 'Train'):
         
-        model = build_model()
-                 
+        model = build_model()                 
         [env, agents] = resetGame()
-
-        #init_s = agent.getState() # Agent 0 selected
         
         [Q_Arr, Loss_Arr] = train_network(model, env, agents, modelName)
         
@@ -397,7 +373,7 @@ def deepQ(select, modelName):
         load_model(model, file_name)
         
         REND = 1    
-        WATCHDOG = 5   
+        WATCHDOG = 50
         TRIALS = 3   
         
         #-- Evaluation --#
@@ -405,81 +381,54 @@ def deepQ(select, modelName):
         avgTR = np.zeros(TRIALS)
         for i_episode in range(TRIALS):
             [env, agents] = resetGame()
-            
             s_t = processStates(agents)
-            
-            #(s_t,x,y,targX) = agent.getState()
-            #s_t = agent.getState()
-
-            
-            #observation = env.reset()
             t = 0
             totR = 0
             done = 0
             while(done == 0):
                 if(REND == 1):
                     env.render()
-                    time.sleep(0.3)
+                    #time.sleep(0.3)
                 ## play the game with model    
-                
-                #s_t = np.array(s_t.reshape(1, s_t.shape[0]*s_t.shape[1]))
-                #s_t = np.append(s_t,[x,y,targX])
-                #s_t = np.array(s_t.reshape(1,s_t.shape[0]))              
-                
-                
-                #s_t = observation.reshape(1, observation.shape[0])
-                #q = model.predict(s_t)
-                #action = np.argmax(q)
-                a_t = predictActions(model,s_t)           
-                #observation, reward, done, info = env.step(action)
-                
-                #agent.action = action
+                a_t = predictActions(model,s_t) 
                 takeActions(agents,a_t)
                 print(a_t)
                 env.step()
                 s_t = processStates(agents)
-                #(s_t,x,y,targX) = agent.getState()
-                #r_t = agent.getReward()
                 r_t = getRewards(agents)
-                #[s_t, r_t] = [agent.getState(), agent.getReward()]
                 done = env.isGameDone()  
                 t = t + 1
                 totR = totR + np.mean(r_t)
                 if(done or (t > WATCHDOG)):
                     print("Cumulative Reward =  {}".format(totR))
                     avgT[i_episode] = totR
-                    [env, agent] = resetGame()
+                    [env, agents] = resetGame()
                     break
 
 
         for i_episode in range(TRIALS):
-            #observation = agent.getState()
             t = 0
             totR = 0
-            done = 0
+            done = 0        
             while(done == 0):
                 if(REND == 1):
                     env.render()
         
                 ## play the game randomly
-                #action = env.action_space.sample()
-                #action = random.sample(range(agent.action_space_n),1)[0]
-                a_t = takeRandomActions(agents)
+                a_t = takeRandomActions(agents)   
+                print(a_t)
                 takeActions(agents,a_t)
-                #observation, reward, done, info = env.step(action)
-                #agent.action = action
                 env.step()
-                s_t = processStates(agents)
                 r_t = getRewards(agents)
-                #[s_t, r_t] = [agent.getState(), agent.getReward()]
                 done = env.isGameDone()                  
                 t = t + 1
                 totR = totR + np.mean(r_t)
                 if(done or (t > WATCHDOG)):
                     print("Cumulative Reward =  {}".format(totR))
                     avgTR[i_episode] = totR
-                    [env, agent] = resetGame()
+                    [env, agents] = resetGame()
                     break
+            
             
         print("\n")
         print("Average Peformances")
@@ -494,5 +443,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Train', 'twoAgentModel1')
+[Q_Arr, Loss_Arr] = deepQ('Test', 'twoAgentModel1')
 #==============================================================================

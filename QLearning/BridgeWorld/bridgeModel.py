@@ -153,7 +153,7 @@ class BridgeAgent(Agent):
         
         # Penatly types
         self.penalty_type = {}
-        self.penalty_type['AA'] = -1 # Agent to Agent
+        self.penalty_type['AA'] = -5 # Agent to Agent
         self.penalty_type['AO'] = -5#-0.5 # Agent to Obstacle
         self.penalty_type['AW'] = -5#-0.5 # Agent to Wall
     #--------------------------------------------------------------------------    
