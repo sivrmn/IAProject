@@ -1,0 +1,1078 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Dec  9 15:54:55 2017
+
+@author: siva_
+"""
+
+#==============================================================================
+# Imports
+#==============================================================================
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+import time as time
+
+from  BridgeWorld.bridgeModel import WorldModel
+
+import gym
+
+from collections import deque
+import json
+#import h5py
+from keras.models import Sequential
+from keras.models import model_from_json
+#from keras.models import h5py
+from keras.layers.core import Dense, Dropout, Activation, Flatten
+from keras.layers.convolutional import Convolution2D, MaxPooling2D
+from keras.optimizers import SGD , Adam
+#import tensorflow as tf
+
+
+#==============================================================================
+
+#==============================================================================
+# Program Constants
+#==============================================================================
+OBSERVATION = 10000 # Timesteps to observe before training
+GAMMA = 0.99 # Decay rate of past observations
+
+#-- Exploration - Explotiation balance --#
+EXPLORE = 500000 # Frames over which to anneal epsilon
+FINAL_EPSILON = 0.0001 # Final value of epsilon
+INITIAL_EPSILON = 0.5 # Starting value of epsilon
+
+#-- Training parameters --#
+TRAIN_INTERVAL = 50
+REPLAY_MEMORY = 400000 # Number of previous transitions to remember
+BATCH = 100 # Size of minibatch
+FRAME_PER_ACTION = 1
+LEARNING_RATE = 1e-3
+
+
+#-- Reward selection --#
+REWARD_LOSS = -10
+REWARD_NOLOSS = 0
+REWARD_TOO_SLOW = 0#-1
+REWARD_WELL_DONE = 100
+#==============================================================================
+
+
+#==============================================================================
+# Building Q-Function model structure
+#==============================================================================
+def build_model():
+    print("Building Model")
+    model = Sequential()
+    model.add(Dense(30, input_dim = 9+3, activation = 'relu', kernel_initializer='he_uniform'))
+    model.add(Dense(30, activation = 'relu', kernel_initializer='he_uniform'))
+    #model.add(Dense(10, activation = 'relu', kernel_initializer='he_uniform'))
+    model.add(Dense(4, activation = 'linear', kernel_initializer='he_uniform'))
+   
+    adam = Adam(lr=LEARNING_RATE)
+    model.compile(loss='mse',optimizer=adam)    
+    #model.compile(loss = 'mse', optimizer = 'sgd')
+    print("Model Summary")
+    model.summary()
+    return model    
+#==============================================================================
+
+
+
+#==============================================================================
+# Training the network
+#==============================================================================
+def train_network(model, env, agents, modelName):
+
+    #-- Program Constants --#
+    ACTIONS = env.schedule.agents[0].action_space_n # Number of valid actions 
+    REND = 0
+    RECORD_DIV = 1000
+    #-----------------------------------------------------#
+
+    #-- Variable initializations --#
+    done = False
+    t = 0 
+    lclT = 0
+    #r_t = []
+    a_t = []
+
+    loss = 0
+    Q_sa = 0     
+    rcdCnt = 0 
+    Q_Arr = np.zeros(np.int(EXPLORE/RECORD_DIV))
+    Loss_Arr = np.zeros(np.int(EXPLORE/RECORD_DIV))
+    
+    s_t1 = processStates(agents)
+
+    
+    #-- Storage for replay memory --#
+    D = deque()
+    
+
+    #-- Exploration of the game state space begins --#
+    epsilon = INITIAL_EPSILON
+    
+    
+    
+    start_time = time.time()
+    
+    while t < EXPLORE:
+                       
+        if done:        
+            [env,agents] = resetGame()
+            s_t1 = processStates(agents)       
+            
+        #-- Choosing an epsilong greedy action --#
+        if np.random.random() <= epsilon:
+            a_t = takeRandomActions(agents)            
+        else:
+            a_t = predictActions(model,s_t1)
+
+        
+        #-- Exploration annealing --#
+        if epsilon > FINAL_EPSILON:
+            epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
+            
+
+        #observation, reward, done, info = env.step(action)
+        takeActions(agents,a_t)
+        env.step()
+        s_t2 = processStates(agents)
+        r_t = getRewards(agents)
+        done = env.isGameDone()
+      
+        if(done == 1):
+            if(lclT >= 100): #499 before
+                r_t = r_t +  REWARD_TOO_SLOW
+                lclT = 0
+                [env, agents] = resetGame()
+            else:
+                r_t = r_t + REWARD_WELL_DONE
+                lclT = 0
+
+        else:
+            if(lclT >= 100):
+                r_t = r_t + REWARD_WELL_DONE
+                [env, agents] = resetGame()
+                lclT = 0
+            else:
+                lclT = lclT + 1
+   
+     
+        D = updateReplayMemory(D,s_t1,a_t,r_t,s_t2,done)
+                    
+        #-- Update graphics based on action taken --#
+        if(REND == 1):
+            if(t>OBSERVATION):
+                if(t% RECORD_DIV > 950):
+                    env.render()
+                
+
+        
+        if len(D) > REPLAY_MEMORY:
+            D.popleft()
+
+        
+        #-- Training after the initial observation is complete --#
+        if((t > OBSERVATION)  & (t % TRAIN_INTERVAL == 0)):
+
+
+            minibatch = random.sample(D, BATCH) 
+            
+            inputs = np.zeros((BATCH, s_t1[0].shape[1]))
+
+            targets = np.zeros((inputs.shape[0], ACTIONS))
+
+            for batchCnt in range(0, len(minibatch)):
+                state_t = minibatch[batchCnt][0]
+                action_t = minibatch[batchCnt][1]
+                reward_t = minibatch[batchCnt][2]
+                state_t1 = minibatch[batchCnt][3]
+                terminal = minibatch[batchCnt][4]
+    
+                inputs[batchCnt:batchCnt+1] = state_t
+                targets[batchCnt] = model.predict(state_t)
+                Q_sa = model.predict(state_t1)
+    
+                #-- Bellman-Deep Q update equations --#
+                if terminal:
+                    targets[batchCnt, action_t] = reward_t
+                else:
+                    targets[batchCnt, action_t] = reward_t + GAMMA * np.max(Q_sa)
+    
+                    
+            loss = model.train_on_batch(inputs, targets)
+
+
+
+        s_t1 = s_t2
+        t = t + 1
+
+        #-- Saving progress every 1000 iterations --#
+        if((t % RECORD_DIV == 0)):# or (np.max(Q_sa)>=50000)):
+            print('Saving Model')
+            model.save_weights(modelName+".h5", overwrite = True)
+            with open(modelName+".json", "w") as outfile:
+                json.dump(model.to_json(), outfile)
+                
+            # Local heuristic to stop if sufficiently high 'Q' is reached
+            #if(np.max(Q_sa)>=50000):
+            #    t = EXPLORE
+   
+            
+        #-- Print updates of progress every 1000 iterations --#
+        if t % RECORD_DIV == 0:
+            Q_Arr[rcdCnt] = np.max(Q_sa)
+            Loss_Arr[rcdCnt] = loss
+            rcdCnt = rcdCnt + 1
+            
+            print("TIMESTEP", t, "/ EPSILON", np.round(epsilon,3), "/ ACTION", a_t, "/ REWARD", r_t,  "/ Q_MAX " , np.max(Q_sa), "/ Loss ", loss)
+                    
+    end_time = time.time()
+    print('Execution time')
+    print(end_time - start_time)
+    print('Time per iteration')
+    print((end_time - start_time)/EXPLORE)                
+                    
+                
+    return(Q_Arr, Loss_Arr)
+#==============================================================================
+
+
+#==============================================================================
+# Loading a trained model
+#==============================================================================
+def load_model(model, file_name):
+    model.load_weights(file_name)
+    #model.compile(loss = 'mse', optimizer = 'sgd')
+    return model    
+#==============================================================================
+
+
+#==============================================================================
+# Obtain states from all the agents
+#==============================================================================
+def processStates(agents):    
+    states = []
+    for a in agents:
+        (s_t,x,y,targX) = a.getState()                
+        s_t = np.array(s_t.reshape(1, s_t.shape[0]*s_t.shape[1]))    
+        s_t = np.append(s_t,[x,y,targX])
+        s_t = np.array(s_t.reshape(1,s_t.shape[0]))
+        states.append(s_t)
+        
+    return(states)
+#==============================================================================
+
+
+#==============================================================================
+# Set actions to all the agents
+#==============================================================================
+def takeActions(agents,a_t):
+    cntA = 0
+    for a in agents:
+        a.action = a_t[cntA]
+        cntA = cntA + 1
+
+    return()
+#==============================================================================
+
+
+#==============================================================================
+# Set random actions to all agents
+#==============================================================================
+def takeRandomActions(agents):
+    a_t = []
+    for a in agents:
+        a_t.append(random.sample(range(agents[0].action_space_n),1)[0]) 
+    #print(a_t)
+    return(a_t)
+#==============================================================================
+
+#==============================================================================
+# Get the rewards from all the agents
+#==============================================================================
+def getRewards(agents):
+    rewards = []
+    for a in agents:
+        rewards.append(a.getReward())
+    rewards = np.array(rewards)
+    return(rewards)
+#==============================================================================
+
+
+
+#==============================================================================
+# Predict the actions given the model and states
+#==============================================================================
+def predictActions(model,s_t):    
+    a_t = []
+    
+    for s in s_t:
+        q = model.predict(s)
+        act = np.argmax(q)
+        a_t.append(act)
+        
+    return(a_t)
+#==============================================================================
+
+
+#==============================================================================
+# Updating replay memory
+#==============================================================================
+def updateReplayMemory(D,s_t1,a_t,r_t,s_t2,done):
+    cntA = 0    
+    for s in s_t1:
+        D.append([s_t1[cntA], a_t[cntA], r_t[cntA], s_t2[cntA], done])
+        cntA = cntA + 1
+        
+    return(D)
+#==============================================================================
+
+
+#==============================================================================
+# Reset by recreating environment
+#==============================================================================
+def resetGame():
+    
+    height = 11
+    width = 11
+    noAgents =2
+    env = WorldModel(noAgents, width, height) 
+    #stateRadius = 2
+    agents = env.schedule.agents       
+
+    return(env, agents)
+#==============================================================================
+
+
+#==============================================================================
+# Select between model training and evaluation
+#==============================================================================
+def deepQ(select, modelName):
+    Q_Arr = 0
+    Loss_Arr = 0
+    if(select == 'Train'):
+        
+        model = build_model()                 
+        [env, agents] = resetGame()
+        
+        [Q_Arr, Loss_Arr] = train_network(model, env, agents, modelName)
+        
+        plt.plot(Q_Arr)
+        plt.figure()
+        plt.plot(Loss_Arr)
+        
+    elif(select == 'Test'):
+                
+        model = build_model()
+        [env, agents] = resetGame()
+        
+        file_name = modelName+".h5"
+        load_model(model, file_name)
+        
+        REND = 1    
+        WATCHDOG = 50
+        TRIALS = 3   
+        
+        #-- Evaluation --#
+        avgT = np.zeros(TRIALS)
+        avgTR = np.zeros(TRIALS)
+        for i_episode in range(TRIALS):
+            [env, agents] = resetGame()
+            s_t = processStates(agents)
+            t = 0
+            totR = 0
+            done = 0
+            while(done == 0):
+                if(REND == 1):
+                    env.render()
+                    time.sleep(0.5)
+                ## play the game with model    
+                a_t = predictActions(model,s_t) 
+                takeActions(agents,a_t)
+                print(a_t)
+                env.step()
+                s_t = processStates(agents)
+                r_t = getRewards(agents)
+                done = env.isGameDone()  
+                t = t + 1
+                totR = totR + np.mean(r_t)
+                if(done or (t > WATCHDOG)):
+                    if(REND == 1):
+                        env.render()
+                        time.sleep(0.5)                    
+                    print("Cumulative Reward =  {}".format(totR))
+                    avgT[i_episode] = totR
+                    [env, agents] = resetGame()
+                    break
+
+
+        for i_episode in range(TRIALS):
+            t = 0
+            totR = 0
+            done = 0        
+            while(done == 0):
+                if(REND == 1):
+                    env.render()
+        
+                ## play the game randomly
+                a_t = takeRandomActions(agents)   
+                print(a_t)
+                takeActions(agents,a_t)
+                env.step()
+                r_t = getRewards(agents)
+                done = env.isGameDone()                  
+                t = t + 1
+                totR = totR + np.mean(r_t)
+                if(done or (t > WATCHDOG)):
+                    print("Cumulative Reward =  {}".format(totR))
+                    avgTR[i_episode] = totR
+                    [env, agents] = resetGame()
+                    break
+            
+            
+        print("\n")
+        print("Average Peformances")
+        print("Average RL reward = {}".format(np.mean(avgT)))   
+        print("Average Random reward = {}".format(np.mean(avgTR)))
+        percentImprove = ((np.mean(avgT) - np.mean(avgTR))/abs((np.mean(avgTR)) ))*100
+        print("Percentage improvement = {}".format(percentImprove) )
+    return(Q_Arr, Loss_Arr)
+#==============================================================================
+
+
+#==============================================================================
+# Main function area
+#==============================================================================
+[Q_Arr, Loss_Arr] = deepQ('Test', 'twoAgentModel4')
+#==============================================================================
+
+
+
+
+
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Nov 14 10:23:01 2017
+
+@author: rajag038
+"""
+
+
+#==============================================================================
+# Bridge World and Robot v1
+#==============================================================================
+# A bridge world with colliding robots
+
+
+
+
+#==============================================================================
+
+#==============================================================================
+# Import statements
+#==============================================================================
+import numpy as np
+import random
+import itertools
+import matplotlib.pyplot as plt
+
+import mesa
+from mesa import Agent, Model
+from mesa.time import RandomActivation
+from mesa.time import SimultaneousActivation
+from mesa.space import MultiGrid, SingleGrid
+from mesa.datacollection import DataCollector
+from mesa.batchrunner import BatchRunner
+
+#==============================================================================
+
+#==============================================================================
+# Class for grid objects (obstacles, targets etc)
+#==============================================================================
+class GridMap():
+
+    #--------------------------------------------------------------------------        
+    # Initilize with agentGrid and add obstacles, targets etc
+    #--------------------------------------------------------------------------        
+    def __init__(self, agentGrid):
+
+       self.agentGrid = agentGrid
+       self.height = agentGrid.height
+       self.width = agentGrid.width
+       
+       self.obstacleGrid = self.obstacleMap()
+       self.targetGrid = self.targetMap()        
+    #--------------------------------------------------------------------------           
+
+    #--------------------------------------------------------------------------    
+    # Define the obstacle grid with forbidden locations
+    #--------------------------------------------------------------------------    
+    def obstacleMap(self):
+
+        obstacleGrid = []
+
+        for x in range(self.width):
+            col = []
+            for y in range(self.height):
+                state = self.isObstacle(x,y)
+                if(state):
+                    col.append(1)
+                else:
+                    col.append(0)
+            obstacleGrid.append(col)
+
+ 
+        return(obstacleGrid)
+    #--------------------------------------------------------------------------            
+    
+    #--------------------------------------------------------------------------    
+    # Define the obstacle locations
+    #--------------------------------------------------------------------------    
+    def isObstacle(self,x,y):
+        
+        state = False
+        h = self.height
+        w = self.width
+        
+        b = np.ceil(h/3)# Bridge width
+        L = np.ceil(w/3) # Bridge Lenght
+        
+        r = np.ceil( ((h-b)/2) )
+        s = np.ceil( ((w-L)/2) )
+        
+        
+        if((0 <= y <= r-1) or (r+b-1 <= y <= h)):
+            if(s-1 <= x <= s+L-1):
+                state = True
+                                    
+        return(state)
+    #--------------------------------------------------------------------------                    
+
+
+    
+    #--------------------------------------------------------------------------        
+    # Define the target grid 
+    #--------------------------------------------------------------------------    
+    def targetMap(self):
+
+        targetGrid = []
+
+        for x in range(self.width):
+            col = []
+            for y in range(self.height):
+                col.append(None)
+            targetGrid.append(col)
+
+         
+        return(targetGrid)
+    #--------------------------------------------------------------------------    
+
+#==============================================================================
+
+#==============================================================================
+# Class for creating a typical bridge world agent
+#==============================================================================
+class BridgeAgent(Agent):
+    
+
+    #--------------------------------------------------------------------------
+    # Initialize all agents start with 0 penalty
+    #--------------------------------------------------------------------------        
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.penalty = 0
+        self.reward = 0
+        
+        # Target location
+        if(unique_id%2 == 1):
+            self.targetX = model.grid.width-1
+        else:
+            self.targetX = 0
+        
+        # Action space:
+        self.action_space = {}
+        self.action_space['Left']    = 0 # Left
+        self.action_space['Right']   = 1 # Right
+        self.action_space['Up']      = 2 # Up
+        self.action_space['Down']    = 3 # Down
+        #self.action_space['Stay']    = 4 # Stay 
+        
+        self.action_space_n = len(self.action_space)        
+
+        # Default Action - no movement
+        self.action = self.action_space['Left']
+        
+        
+        # Penatly types
+        self.penalty_type = {}
+        self.penalty_type['AA'] = -5 # Agent to Agent
+        self.penalty_type['AO'] = -5#-0.5 # Agent to Obstacle
+        self.penalty_type['AW'] = -5#-0.5 # Agent to Wall
+        
+        # Reward
+        self.goalReward = 0#100
+    #--------------------------------------------------------------------------    
+
+
+    #--------------------------------------------------------------------------    
+    # Function for deciding where to move, currently moves to a random unoccupied location
+    # or stays put
+    #--------------------------------------------------------------------------        
+    def randMoveDecision(self):
+        local_steps = self.model.grid.get_neighborhood(self.pos,moore=False,include_center=False)
+        
+        possible_steps = []
+        for lcl_pos in local_steps:
+            if(len(self.model.grid.get_cell_list_contents(lcl_pos)) == 0 ):
+                possible_steps.append(lcl_pos)
+        possible_steps.append(self.pos)
+        
+        self.new_position = random.choice(possible_steps)
+        
+        return()
+    #--------------------------------------------------------------------------    
+
+        
+    #--------------------------------------------------------------------------            
+    # Function for deciding on a move based on a given action, if new action leads to an 
+    # unoccupied location
+    #--------------------------------------------------------------------------    
+    def directedMoveDecision(self, action):      
+        
+        if(action == self.action_space['Left']):
+            self.new_position = (self.pos[0]-1, self.pos[1]+0)
+        elif(action == self.action_space['Right']):
+            self.new_position = (self.pos[0]+1, self.pos[1]+0)
+        elif(action == self.action_space['Up']):
+            self.new_position = (self.pos[0]+0, self.pos[1]+1)
+        elif(action == self.action_space['Down']):
+            self.new_position = (self.pos[0]+0, self.pos[1]-1)
+        elif(action == self.action_space['Stay']):
+            self.new_position = self.pos
+        else:            
+            print('Error- action not recongized')
+            return(-1)            
+        
+        local_steps = self.model.grid.get_neighborhood(self.pos,moore=False,include_center=True)
+
+        possible_steps = []
+        for lcl_pos in local_steps:
+            if(len(self.model.grid.get_cell_list_contents(lcl_pos)) == 0 ):
+                possible_steps.append(lcl_pos)
+        possible_steps.append(self.pos)
+        
+
+        if(not (self.new_position in local_steps)):
+            # Penalty for hitting a wall at a known locations? If yes, add here
+            self.new_position = self.pos
+            self.updatePenalty(self.penalty_type['AW'])
+
+        if(not (self.new_position in possible_steps)):
+            # Penalty for hitting an agent at a known locations? If yes, add here
+            self.new_position = self.pos
+            
+            
+        if(self.model.obstacleMap[self.new_position]==1):
+            # Penalty for hitting an obstacle at a known locations? If yes, add here
+            self.new_position = self.pos
+            self.updatePenalty(self.penalty_type['AO'])
+            
+            
+        return()    
+    #--------------------------------------------------------------------------                
+                        
+            
+        
+    #--------------------------------------------------------------------------            
+    # Function for executing a decided move
+    #--------------------------------------------------------------------------    
+    def executeMove(self):               
+        cell_list = self.model.grid.get_neighborhood(self.new_position,moore=False,include_center=True)
+        cell_list.remove(self.pos)
+        
+        # Remove candidates with obstacles
+        for cell in cell_list:
+            if(self.model.obstacleMap[cell]==1):
+                cell_list.remove(cell)
+        
+        move_competitors = self.model.grid.get_cell_list_contents(cell_list)
+        
+        who_else = []
+        for a in move_competitors:
+            if(a.new_position == self.new_position):
+                who_else.append(a)                             
+
+        if(len(who_else)>0):
+            self.model.grid.move_agent(self, self.pos)                
+            self.updatePenalty(self.penalty_type['AA'])
+        else:    
+            if(self.model.obstacleMap[self.new_position]==0):                
+                self.model.grid.move_agent(self, self.new_position)  
+            else:                                
+                self.model.grid.move_agent(self, self.pos)
+                
+        
+        # Reset action to Stay 
+        self.action = self.action_space['Left']
+
+        return()
+    #--------------------------------------------------------------------------            
+                
+        
+    #--------------------------------------------------------------------------    
+    # Increase penalty by 1 if there is a collision
+    #--------------------------------------------------------------------------    
+    def updatePenalty(self, penaltyIncrement):
+        self.penalty = penaltyIncrement #self.penalty + penaltyIncrement      
+        return()
+    #--------------------------------------------------------------------------    
+ 
+    
+    #--------------------------------------------------------------------------    
+    # Update reward function
+    #--------------------------------------------------------------------------    
+    def getReward(self):
+        if(self.getEuclidDist() == 0):
+            self.reward = self.goalReward + self.penalty 
+            self.goalReward = 0
+        else:
+            self.reward = -5+self.penalty #-5*self.getEuclidDist() + self.penalty      
+        return(self.reward)
+    #--------------------------------------------------------------------------  
+
+
+    #--------------------------------------------------------------------------    
+    # Obtain shortest Euclidean distance
+    #--------------------------------------------------------------------------    
+    def getEuclidDist(self):
+        dist = abs(self.pos[0] - self.targetX)
+        return(dist)
+    #--------------------------------------------------------------------------  
+
+    '''
+    #--------------------------------------------------------------------------    
+    # Returns the current state of the agent (current state of the neighbourhood
+    # cells within a radius r) 
+    #--------------------------------------------------------------------------    
+    def getState(self, radius=2):
+        
+        # Neighbourhood cells
+        # radius+1 used as a tentative fix, mesa got the moore radius wrong
+        cell_list = self.model.grid.get_neighborhood(self.pos,moore=True,include_center=True, radius = radius+1)
+        
+        
+        # Agent locations
+        agent_list= self.model.grid.get_cell_list_contents(cell_list)
+        
+        agent_locs = []
+        for a in agent_list:
+            agent_locs.append(a.pos)
+            
+            
+        obs_list = []
+        # Obstacle locations
+        for cell in cell_list:
+            if(self.model.obstacleMap[cell]==1):
+                obs_list.append(cell)            
+        
+        m = 2*radius+1
+        state = np.matrix(np.zeros((m,m)))
+        
+        x_offset = self.pos[0] - radius
+        y_offset = self.pos[1] - radius
+           
+        for y in range(0,m):
+            for x in range(0,m):
+                xn = x + x_offset
+                yn = y + y_offset
+                
+                if((xn<0 or xn >= self.model.grid.height) or (yn<0 or yn >= self.model.grid.width)):
+                    state[x,m-y-1] = 2 # This is a wall        
+                else:
+                    if(not((xn,yn) in cell_list)): 
+                        state[x,m-y-1] = 3 # This is unobserved
+                    
+                    else:                             
+                        if((xn,yn) in obs_list):
+                            state[x,m-y-1] = 2 # This is an obstacle
+                                                
+                        if((xn,yn) in agent_locs):
+                            state[x,m-y-1] = 1 # This is an agent
+            
+                        if((xn,yn)==self.pos):
+                            state[x,m-y-1] = -1 # Self position
+                        
+        state = state.T
+                                                                                                        
+        
+        return(state)
+    #-------------------------------------------------------------------------- 
+    '''
+
+    #--------------------------------------------------------------------------    
+    # Returns the current state of the agent (current state of the neighbourhood
+    # cells within a radius r) + send the coordinates of the robot + target
+    #--------------------------------------------------------------------------    
+    def getState(self, radius=1):
+        
+        # Neighbourhood cells
+        # radius+1 used as a tentative fix, mesa got the moore radius wrong
+        cell_list = self.model.grid.get_neighborhood(self.pos,moore=True,include_center=True, radius = radius+1)
+        
+        
+        # Agent locations
+        agent_list= self.model.grid.get_cell_list_contents(cell_list)
+        
+        agent_locs = []
+        for a in agent_list:
+            agent_locs.append(a.pos)
+            
+            
+        obs_list = []
+        # Obstacle locations
+        for cell in cell_list:
+            if(self.model.obstacleMap[cell]==1):
+                obs_list.append(cell)            
+        
+        m = 2*radius+1
+        #state = np.matrix(np.zeros((m,m))) # Empty cells are represented by 0
+        state = np.matrix(np.ones((m,m)))*10 # Empty cells are represented by 10
+        
+        x_offset = self.pos[0] - radius
+        y_offset = self.pos[1] - radius
+           
+        for y in range(0,m):
+            for x in range(0,m):
+                xn = x + x_offset
+                yn = y + y_offset
+                
+                if((xn<0 or xn >= self.model.grid.height) or (yn<0 or yn >= self.model.grid.width)):
+                    state[x,m-y-1] = 2 # This is a wall        
+                else:
+                    if(not((xn,yn) in cell_list)): 
+                        state[x,m-y-1] = 3 # This is unobserved
+                    
+                    else:                             
+                        if((xn,yn) in obs_list):
+                            state[x,m-y-1] = 2 # This is an obstacle
+                                                
+                        if((xn,yn) in agent_locs):
+                            state[x,m-y-1] = 1 # This is an agent
+            
+                        if((xn,yn)==self.pos):
+                            state[x,m-y-1] = -1 # Self position
+                        
+        state = state.T
+                                          
+
+        (x,y) = self.pos
+        targX =  self.targetX                                                         
+        
+        return(state,x,y,targX)
+    #-------------------------------------------------------------------------- 
+    
+
+    #--------------------------------------------------------------------------    
+    # Function for defining all robot activity at each simulation step
+    #--------------------------------------------------------------------------    
+    def step(self):
+        #self.randMoveDecision()
+        self.directedMoveDecision(self.action)
+        return()
+    #--------------------------------------------------------------------------            
+    
+    
+    #--------------------------------------------------------------------------        
+    # Function for action execution
+    #--------------------------------------------------------------------------    
+    def advance(self):
+        self.executeMove()
+        return()
+    #--------------------------------------------------------------------------    
+
+#==============================================================================
+
+
+#==============================================================================
+# Class for the world
+#==============================================================================
+class WorldModel(Model):
+
+    #--------------------------------------------------------------------------        
+    # Initialize world with a number of agents
+    #--------------------------------------------------------------------------    
+    def __init__(self, N, width, height):
+        self.running = True
+        self.num_agents = N
+        self.width = width
+        self.height = height
+        self.grid = SingleGrid(width, height, False) # Non Toroidal World
+        self.mapGrid = GridMap(self.grid)
+        self.obstacleMap = np.matrix(self.mapGrid.obstacleGrid)
+        self.schedule = SimultaneousActivation(self)                
+        self.yticks = np.arange(-0.5, height+0.5, 1) 
+        self.xticks = np.arange(-0.5, width+0.5, 1) 
+
+        # Create agents
+        oddCnt = 0
+        evenCnt = 0
+        for i in range(self.num_agents):
+            a = BridgeAgent(i, self)
+            self.schedule.add(a)
+            # Add the agent to a random grid cell
+            #x = random.randrange(self.grid.width)
+            #y = random.randrange(self.grid.height)
+            #self.grid.place_agent(a, (x, y))            
+            #self.grid.position_agent(a, x="random", y="random")
+                        
+            if(i%2 == 1):
+                x = 0
+                y = oddCnt #i%(self.grid.height) 
+                oddCnt = oddCnt + 1 
+                self.grid.place_agent(a,(x,y))
+            else:
+                x = self.grid.width-1
+                y = evenCnt+0 #i%(self.grid.height) 
+                evenCnt = evenCnt + 1
+                self.grid.place_agent(a,(x,y))
+            
+        self.datacollector = DataCollector(
+            #model_reporters={"Gini": compute_gini},
+            agent_reporters={"Penalty": lambda a: a.penalty})
+    #--------------------------------------------------------------------------    
+    
+
+    
+    #--------------------------------------------------------------------------        
+    # End of game check
+    #--------------------------------------------------------------------------        
+    def isGameDone(self):
+        L = 0
+        for a in self.schedule.agents:
+            
+            L = a.getEuclidDist() + L    
+            
+        if(L==0):
+            gameDone = 1
+        else:
+            gameDone = 0
+            
+        return(gameDone)
+    #--------------------------------------------------------------------------        
+    
+    #--------------------------------------------------------------------------        
+    # Reset function
+    #--------------------------------------------------------------------------        
+    def reset(self):
+        # Create agents
+        oddCnt = 0
+        evenCnt = 0
+        for a in self.schedule.agents:
+            i = a.unique_id                        
+            if(i%2 == 1):
+                x = 0
+                y = oddCnt #i%(self.grid.height) 
+                oddCnt = oddCnt + 1 
+                self.grid.place_agent(a,(x,y))
+            else:
+                x = self.grid.width-1
+                y = evenCnt #i%(self.grid.height) 
+                evenCnt = evenCnt + 1
+                self.grid.place_agent(a,(x,y))
+        return()
+    #-------------------------------------------------------------------------- 
+
+
+
+    #--------------------------------------------------------------------------        
+    # All activities to be done in the world at each step
+    #-------------------------------------------------------------------------- 
+    def render(self):
+        plt.clf()
+        evenAgents = []
+        oddAgents = []
+        
+        for agent in self.schedule.agents:
+            if(agent.unique_id % 2 == 0):
+                evenAgents.append(agent.pos)        
+            else:
+                oddAgents.append(agent.pos)
+                
+                
+        evenAgents = np.matrix(evenAgents)
+        oddAgents = np.matrix(oddAgents)      
+        
+        # Scatter plot of agents and obstacles
+        area = np.pi*(7)**2  # 15 point radii
+        if(np.size(evenAgents,1)>0):
+            plt.scatter(np.array(evenAgents[:,0]), np.array(evenAgents[:,1]),s=area, c='g', alpha=0.5)
+        if(np.size(oddAgents,1)>0):
+            plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
+        
+        
+        
+        plt.axes().set_yticks(self.yticks, minor=True)
+        plt.axes().set_xticks(self.xticks, minor=True)
+        plt.grid(which='minor')
+        plt.ylim(-0.5,self.height-0.5)
+        plt.xlim(-0.5,self.width-0.5)  
+        
+        plt.imshow(~self.obstacleMap.T,cmap='gray')        
+        
+        plt.pause(0.001)
+        
+        return()
+    #--------------------------------------------------------------------------        
+    
+    
+    
+    #--------------------------------------------------------------------------        
+    # All activities to be done in the world at each step
+    #--------------------------------------------------------------------------    
+    def step(self):
+        self.datacollector.collect(self)
+        self.schedule.step()
+        return()
+    #--------------------------------------------------------------------------    
+
+        
+#==============================================================================
+
+
+
+'''
+#%%
+
+import copy
+
+model = WorldModel(5,10,10)
+
+a = model.obstacleMap
+
+b = model.grid.get_neighborhood((0,2),moore = False)
+
+
+cell_list = copy.deepcopy(b)
+
+for cell in cell_list:
+    print(a[cell])
+    if(model.obstacleMap[cell]==1):
+        cell_list.remove(cell)
+
+'''
+
+
+
+
+
+
+
