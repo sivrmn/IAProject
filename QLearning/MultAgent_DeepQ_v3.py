@@ -38,13 +38,13 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 500000 # Frames over which to anneal epsilon
+EXPLORE = 700000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.0001 # Final value of epsilon
-INITIAL_EPSILON = 1 # Starting value of epsilon
+INITIAL_EPSILON = 0.5 # Starting value of epsilon
 
 #-- Training parameters --#
 TRAIN_INTERVAL = 50
-REPLAY_MEMORY = 200000 # Number of previous transitions to remember
+REPLAY_MEMORY = 400000 # Number of previous transitions to remember
 BATCH = 100 # Size of minibatch
 FRAME_PER_ACTION = 1
 LEARNING_RATE = 1e-3
@@ -86,7 +86,7 @@ def train_network(model, env, agents, modelName):
 
     #-- Program Constants --#
     ACTIONS = env.schedule.agents[0].action_space_n # Number of valid actions 
-    REND = 1
+    REND = 0
     RECORD_DIV = 1000
     #-----------------------------------------------------#
 
@@ -338,7 +338,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 2
+    noAgents = 4
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -443,5 +443,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'twoAgentModel1')
+[Q_Arr, Loss_Arr] = deepQ('Train', 'twoAgentModel1')
 #==============================================================================
