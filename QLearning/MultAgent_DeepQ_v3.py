@@ -38,7 +38,7 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 700000 # Frames over which to anneal epsilon
+EXPLORE = 500000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.0001 # Final value of epsilon
 INITIAL_EPSILON = 0.5 # Starting value of epsilon
 
@@ -54,7 +54,7 @@ LEARNING_RATE = 1e-3
 REWARD_LOSS = -10
 REWARD_NOLOSS = 0
 REWARD_TOO_SLOW = 0#-1
-REWARD_WELL_DONE = 0#100
+REWARD_WELL_DONE = 100
 #==============================================================================
 
 
@@ -338,7 +338,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 4
+    noAgents = 2
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -443,5 +443,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Train', 'twoAgentModel1')
+[Q_Arr, Loss_Arr] = deepQ('Train', 'twoAgentModel4')
 #==============================================================================

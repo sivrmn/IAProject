@@ -156,6 +156,9 @@ class BridgeAgent(Agent):
         self.penalty_type['AA'] = -5 # Agent to Agent
         self.penalty_type['AO'] = -5#-0.5 # Agent to Obstacle
         self.penalty_type['AW'] = -5#-0.5 # Agent to Wall
+        
+        # Reward
+        self.goalReward = 0#100
     #--------------------------------------------------------------------------    
 
 
@@ -278,7 +281,8 @@ class BridgeAgent(Agent):
     #--------------------------------------------------------------------------    
     def getReward(self):
         if(self.getEuclidDist() == 0):
-            self.reward = 100 + self.penalty 
+            self.reward = self.goalReward + self.penalty 
+            self.goalReward = 0
         else:
             self.reward = -5+self.penalty #-5*self.getEuclidDist() + self.penalty      
         return(self.reward)
