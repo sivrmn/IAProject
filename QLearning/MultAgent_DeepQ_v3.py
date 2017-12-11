@@ -338,7 +338,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 4
+    noAgents = 10
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -448,5 +448,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Train', 'twoAgentModel8')
+[Q_Arr, Loss_Arr] = deepQ('Test', 'twoAgentModel4')
 #==============================================================================

@@ -557,6 +557,14 @@ class WorldModel(Model):
         if(np.size(oddAgents,1)>0):
             plt.scatter(np.array(oddAgents[:,0]), np.array(oddAgents[:,1]),s=area, c='r', alpha=0.5)
         
+
+        area = 500      
+        cntH = 0
+        for ii in range(self.height):
+            plt.scatter(0,cntH,s=area, c='g',marker='x', alpha=0.5)
+            plt.scatter(self.width-1,cntH,s=area, c='r',marker='x', alpha=0.5)
+            cntH = cntH + 1
+               
         
         
         plt.axes().set_yticks(self.yticks, minor=True)
@@ -565,7 +573,7 @@ class WorldModel(Model):
         plt.ylim(-0.5,self.height-0.5)
         plt.xlim(-0.5,self.width-0.5)  
         
-        plt.imshow(~self.obstacleMap.T,cmap='gray')        
+        plt.imshow(self.obstacleMap.T,cmap='Blues')        
         
         plt.pause(0.001)
         
