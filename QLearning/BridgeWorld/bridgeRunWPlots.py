@@ -31,7 +31,7 @@ from mesa.batchrunner import BatchRunner
 # =============================================================================
 height = 11
 width = 11
-model = WorldModel(1, width, height)
+model = WorldModel(22, width, height)
 obstacleMap = model.obstacleMap
 
 evenAgents = []
@@ -57,10 +57,21 @@ oddAgents = np.matrix(oddAgents)
 #xticks = np.arange(-0.5, width+0.5, 1) 
 
 
-for i in range(10):
+for i in range(4):
     model.step()
     model.render()
-    '''
+    
+    
+agent = model.schedule.agents[10]
+
+print(agent.pos)
+
+print(agent.getCommState())
+
+
+
+
+'''
     plt.clf()
     
     evenAgents = []

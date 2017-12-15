@@ -151,6 +151,21 @@ class BridgeAgent(Agent):
         self.action = self.action_space['Left']
         
         
+        # Comm. Action Space:
+        self.comm_action_space = {}
+        self.comm_action_space['Left']    = 0 # Left
+        self.comm_action_space['Right']   = 1 # Right
+        self.comm_action_space['Up']      = 2 # Up
+        self.comm_action_space['Down']    = 3 # Down
+        #self.comm_action_space['Stay']    = 4 # Stay 
+        
+        self.comm_action_space_n = len(self.comm_action_space)        
+
+        # Default Action - no movement
+        self.comm_action = self.comm_action_space['Left']        
+        
+        
+        
         # Penatly types
         self.penalty_type = {}
         self.penalty_type['AA'] = -5 # Agent to Agent
@@ -357,6 +372,10 @@ class BridgeAgent(Agent):
     #-------------------------------------------------------------------------- 
     '''
 
+  
+
+    
+    
     #--------------------------------------------------------------------------    
     # Returns the current state of the agent (current state of the neighbourhood
     # cells within a radius r) + send the coordinates of the robot + target
@@ -417,6 +436,58 @@ class BridgeAgent(Agent):
         targX =  self.targetX                                                         
         
         return(state,x,y,targX)
+    #--------------------------------------------------------------------------     
+        
+    
+    #--------------------------------------------------------------------------    
+    # Returns the current state comm. state (i.e. all the comm variables of the
+    # appropriate neighbours)
+    #--------------------------------------------------------------------------      
+    def getCommState(self):
+        
+        radius=1
+        comm_list = []
+        # Comm Neighbourhood cells (agents that can potentially collide without communication)
+        # radius+1 used as a tentative fix, mesa got the moore radius wrong
+        cell_list = self.model.grid.get_neighborhood(self.pos,moore=True,include_center=False, radius = radius+1)        
+        remove_list = self.model.grid.get_neighborhood(self.pos,moore=False,include_center=False, radius = radius)
+        
+        if(len(cell_list)>0 and len(remove_list)>0):
+            comm_list = [x for x in cell_list if x not in remove_list]     
+        
+        comm_state = np.matrix(np.ones((1,8)))*(-1) #-1 indicates no communication
+
+
+        # Communication Agent locations
+        agent_list= self.model.grid.get_cell_list_contents(comm_list)
+
+        
+        # Collect communication variables of appropriate neighbours
+        if(len(agent_list)>0):
+            
+            for a in comm_list:
+                diffPos = self.pos - a.pos
+                
+                if(diffPos == (0,-2)): # Agent to the north
+                    comm_state[1,0] = a.comm_action
+                elif(diffPos == (-1,-1)): # Agent to the northeast
+                    comm_state[1,1] = a.comm_action
+                elif(diffPos == (-2,0)): # Agent to the east
+                    comm_state[1,2] = a.comm_action
+                elif(diffPos == (-1,1)): # Agent to the southeast
+                    comm_state[1,3] = a.comm_action
+                elif(diffPos == (0,2)): # Agent to the south
+                    comm_state[1,4] = a.comm_action
+                elif(diffPos == (1,1)): # Agent to the southwest
+                    comm_state[1,5] = a.comm_action
+                elif(diffPos == (2,0)): # Agent to the west
+                    comm_state[1,6] = a.comm_action
+                elif(diffPos == (1,-1)): # Agent to the northwest
+                    comm_state[1,7] = a.comm_action                
+                else:
+                    print('Error - do not recognize the agent position')                                                       
+        
+        return(comm_state)
     #-------------------------------------------------------------------------- 
     
 
