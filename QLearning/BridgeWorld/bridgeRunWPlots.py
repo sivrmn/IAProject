@@ -57,7 +57,7 @@ oddAgents = np.matrix(oddAgents)
 #xticks = np.arange(-0.5, width+0.5, 1) 
 
 
-for i in range(4):
+for i in range(0):
     model.step()
     model.render()
     

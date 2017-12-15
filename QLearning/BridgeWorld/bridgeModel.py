@@ -465,25 +465,25 @@ class BridgeAgent(Agent):
         # Collect communication variables of appropriate neighbours
         if(len(agent_list)>0):
             
-            for a in comm_list:
-                diffPos = self.pos - a.pos
+            for a in agent_list:
+                diffPos = np.array(self.pos) - np.array(a.pos)
                 
-                if(diffPos == (0,-2)): # Agent to the north
-                    comm_state[1,0] = a.comm_action
-                elif(diffPos == (-1,-1)): # Agent to the northeast
-                    comm_state[1,1] = a.comm_action
-                elif(diffPos == (-2,0)): # Agent to the east
-                    comm_state[1,2] = a.comm_action
-                elif(diffPos == (-1,1)): # Agent to the southeast
-                    comm_state[1,3] = a.comm_action
-                elif(diffPos == (0,2)): # Agent to the south
-                    comm_state[1,4] = a.comm_action
-                elif(diffPos == (1,1)): # Agent to the southwest
-                    comm_state[1,5] = a.comm_action
-                elif(diffPos == (2,0)): # Agent to the west
-                    comm_state[1,6] = a.comm_action
-                elif(diffPos == (1,-1)): # Agent to the northwest
-                    comm_state[1,7] = a.comm_action                
+                if(np.array_equal(diffPos, [0,-2]) ): # Agent to the north
+                    comm_state[0,0] = a.comm_action
+                elif(np.array_equal(diffPos, [-1,-1]) ): # Agent to the northeast
+                    comm_state[0,1] = a.comm_action
+                elif(np.array_equal(diffPos, [-2,0]) ): # Agent to the east
+                    comm_state[0,2] = a.comm_action
+                elif(np.array_equal(diffPos, [-1,1]) ): # Agent to the southeast
+                    comm_state[0,3] = a.comm_action
+                elif(np.array_equal(diffPos, [0,2]) ): # Agent to the south
+                    comm_state[0,4] = a.comm_action
+                elif(np.array_equal(diffPos, [1,1]) ): # Agent to the southwest
+                    comm_state[0,5] = a.comm_action
+                elif(np.array_equal(diffPos, [2,0]) ): # Agent to the west
+                    comm_state[0,6] = a.comm_action
+                elif(np.array_equal(diffPos, [1,-1]) ): # Agent to the northwest
+                    comm_state[0,7] = a.comm_action                
                 else:
                     print('Error - do not recognize the agent position')                                                       
         
