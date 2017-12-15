@@ -38,9 +38,9 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 500000 # Frames over which to anneal epsilon
+EXPLORE = 1000000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.0001 # Final value of epsilon
-INITIAL_EPSILON = 0.5 # Starting value of epsilon
+INITIAL_EPSILON = 1 # Starting value of epsilon
 
 #-- Training parameters --#
 TRAIN_INTERVAL = 50
@@ -64,7 +64,7 @@ REWARD_WELL_DONE = 100
 def build_model():
     print("Building Model")
     model = Sequential()
-    model.add(Dense(30, input_dim = 9+3+8, activation = 'relu', kernel_initializer='he_uniform'))
+    model.add(Dense(50, input_dim = 9+3+8, activation = 'relu', kernel_initializer='he_uniform'))
     model.add(Dense(30, activation = 'relu', kernel_initializer='he_uniform'))
     #model.add(Dense(10, activation = 'relu', kernel_initializer='he_uniform'))
     model.add(Dense(4, activation = 'linear', kernel_initializer='he_uniform'))
@@ -388,7 +388,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 4
+    noAgents = 8
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -437,7 +437,7 @@ def deepQ(select, modelName):
             load_model(commModel, comm_file_name)
         
         REND = 1    
-        WATCHDOG = 5
+        WATCHDOG = 50
         TRIALS = 1   
         
         #-- Evaluation --#
@@ -525,5 +525,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'cModel1')
+[Q_Arr, Loss_Arr] = deepQ('Train', 'cModel2')
 #==============================================================================
