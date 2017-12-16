@@ -280,7 +280,7 @@ class BridgeAgent(Agent):
         
         
         # Reset comm action to -1
-        self.comm_action = -1
+        #self.comm_action = -1
 
         return()
     #--------------------------------------------------------------------------            

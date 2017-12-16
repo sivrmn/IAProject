@@ -146,7 +146,8 @@ def train_network(model, commModel, COMM_ON, env, agents, modelName):
             takeActions(agents,ca_t, comm = 1)
             
         env.step()
-        s_t2 = processStates(agents, withComm = COMM_ON)
+        #s_t2 = processStates(agents, withComm = COMM_ON)
+        [a_t2, ca_t2, s_t2] = getSeqActions(agents,model,commModel,withComm = COMM_ON)
         r_t = getRewards(agents)
         done = env.isGameDone()
       
@@ -306,6 +307,11 @@ def getSeqActions(agents,model,commModel,withComm = 0):
         a_t.append(action[0])
         ca_t.append(commAction[0])
     
+    # Reset communication after all values have been read and decisions made
+    for i in agShuffle:
+        ag = agents[i]
+        ag.comm_action = -1
+    
     return([a_t, ca_t, s_t])
 # =============================================================================
 
@@ -420,7 +426,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 10
+    noAgents = 6
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
