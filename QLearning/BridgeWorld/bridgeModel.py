@@ -275,8 +275,12 @@ class BridgeAgent(Agent):
                 self.model.grid.move_agent(self, self.pos)
                 
         
-        # Reset action to Stay 
+        # Reset action to Stay or default
         self.action = self.action_space['Left']
+        
+        
+        # Reset comm action to -1
+        self.comm_action = -1
 
         return()
     #--------------------------------------------------------------------------            

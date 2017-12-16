@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Dec 14 20:00:07 2017
+Created on Fri Dec 15 15:47:58 2017
 
-@author: rajag038
+@author: siva_
 """
-
 #==============================================================================
 # Imports
 #==============================================================================
@@ -38,7 +37,7 @@ OBSERVATION = 10000 # Timesteps to observe before training
 GAMMA = 0.99 # Decay rate of past observations
 
 #-- Exploration - Explotiation balance --#
-EXPLORE = 1000000 # Frames over which to anneal epsilon
+EXPLORE = 500000 # Frames over which to anneal epsilon
 FINAL_EPSILON = 0.0001 # Final value of epsilon
 INITIAL_EPSILON = 1 # Starting value of epsilon
 
@@ -133,13 +132,8 @@ def train_network(model, commModel, COMM_ON, env, agents, modelName):
         if np.random.random() <= epsilon:
             a_t = takeRandomActions(agents, comm = 0)               
             ca_t = takeRandomActions(agents, comm = 1)
-        else:
-            a_t = predictActions(model,s_t1)
-            if(COMM_ON == 1):
-                ca_t = predictActions(commModel,s_t1)
-            else:
-                ca_t = takeRandomActions(agents, comm = 1)
-
+        else:                                       
+            [a_t, ca_t, s_t1] = getSeqActions(agents,model,commModel,withComm = COMM_ON)
         
         #-- Exploration annealing --#
         if epsilon > FINAL_EPSILON:
@@ -279,6 +273,44 @@ def train_network(model, commModel, COMM_ON, env, agents, modelName):
 #==============================================================================
 
 
+
+
+# =============================================================================
+# Train agents sequentially by taking taking actions after communicating
+# =============================================================================
+def getSeqActions(agents,model,commModel,withComm = 0):
+    
+    agShuffle = list(range(0,len(agents)))
+    random.shuffle(agShuffle)
+    
+    a_t= []
+    ca_t = []
+    s_t = []
+    
+    
+    for i in agShuffle:
+        ag = agents[i]
+        state = processStates([ag],withComm)
+
+        action = predictActions(model,state)
+        takeActions([ag],action, comm = 0)
+        
+        if(withComm == 1):
+            commAction = predictActions(commModel,state)
+        else:
+            commAction = takeRandomActions(agents, comm = 1)  
+            
+        takeActions([ag],commAction, comm = 1)
+        
+        s_t.append(state[0])
+        a_t.append(action[0])
+        ca_t.append(commAction[0])
+    
+    return([a_t, ca_t, s_t])
+# =============================================================================
+
+    
+    
 #==============================================================================
 # Loading a trained model
 #==============================================================================
@@ -388,7 +420,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 2
+    noAgents = 10
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -453,20 +485,21 @@ def deepQ(select, modelName):
                 if(REND == 1):
                     env.render()
                     time.sleep(0.5)
-                ## play the game with model    
-                a_t = predictActions(model,s_t) 
-                takeActions(agents,a_t,comm=0)                   
+                ## play the game with model 
+                [a_t, ca_t, s_t] = getSeqActions(agents,model,commModel,withComm = COMM_ON)
+                #a_t = predictActions(model,s_t) 
+                #takeActions(agents,a_t,comm=0)                   
                 print('Action = ', a_t)
                 
                 if(COMM_ON == 1):
-                    ca_t = predictActions(commModel,s_t)
-                    takeActions(agents,ca_t,comm=1)
+                    #ca_t = predictActions(commModel,s_t)
+                    #takeActions(agents,ca_t,comm=1)
                     print('Comm Action = ', ca_t)
                     
 
                     
                 env.step()
-                s_t = processStates(agents, withComm = COMM_ON)
+                #s_t = processStates(agents, withComm = COMM_ON)
                 r_t = getRewards(agents)
                 done = env.isGameDone()  
                 t = t + 1
@@ -525,5 +558,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Test', 'cModel1')
+[Q_Arr, Loss_Arr] = deepQ('Train', 'cModel2')
 #==============================================================================
