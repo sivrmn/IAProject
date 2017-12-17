@@ -43,7 +43,7 @@ INITIAL_EPSILON = 1 # Starting value of epsilon
 
 #-- Training parameters --#
 TRAIN_INTERVAL = 50
-REPLAY_MEMORY = 400000 # Number of previous transitions to remember
+REPLAY_MEMORY = 200000 # Number of previous transitions to remember
 BATCH = 100 # Size of minibatch
 FRAME_PER_ACTION = 1
 LEARNING_RATE = 1e-3
@@ -63,7 +63,7 @@ REWARD_WELL_DONE = 100
 def build_model():
     print("Building Model")
     model = Sequential()
-    model.add(Dense(50, input_dim = 9+3+8, activation = 'relu', kernel_initializer='he_uniform'))
+    model.add(Dense(30, input_dim = 9+3+8, activation = 'relu', kernel_initializer='he_uniform'))
     model.add(Dense(30, activation = 'relu', kernel_initializer='he_uniform'))
     #model.add(Dense(10, activation = 'relu', kernel_initializer='he_uniform'))
     model.add(Dense(4, activation = 'linear', kernel_initializer='he_uniform'))
@@ -426,7 +426,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 6
+    noAgents = 4
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -476,7 +476,7 @@ def deepQ(select, modelName):
         
         REND = 1    
         WATCHDOG = 50
-        TRIALS = 3   
+        TRIALS = 1   
         
         #-- Evaluation --#
         avgT = np.zeros(TRIALS)
@@ -564,5 +564,5 @@ def deepQ(select, modelName):
 #==============================================================================
 # Main function area
 #==============================================================================
-[Q_Arr, Loss_Arr] = deepQ('Train', 'cModel2')
+[Q_Arr, Loss_Arr] = deepQ('Test', 'cModel3')
 #==============================================================================
