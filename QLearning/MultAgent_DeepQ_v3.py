@@ -338,7 +338,7 @@ def resetGame():
     
     height = 11
     width = 11
-    noAgents = 10
+    noAgents = 22
     env = WorldModel(noAgents, width, height) 
     #stateRadius = 2
     agents = env.schedule.agents       
@@ -372,7 +372,7 @@ def deepQ(select, modelName):
         file_name = modelName+".h5"
         load_model(model, file_name)
         
-        REND = 1    
+        REND = 0 
         WATCHDOG = 50
         TRIALS = 3   
         

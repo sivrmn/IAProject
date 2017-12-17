@@ -55,19 +55,15 @@ oddAgents = np.matrix(oddAgents)
 #fig, ax = plt.subplots()
 #yticks = np.arange(-0.5, height+0.5, 1) 
 #xticks = np.arange(-0.5, width+0.5, 1) 
-
-
-for i in range(0):
+plt.figure()
+model.render()
+plt.savefig('BridgeWorldStarting.eps', bbox_inches='tight')
+plt.figure()
+for i in range(1000):
     model.step()
-    model.render()
+model.render()
     
-    
-agent = model.schedule.agents[10]
-
-print(agent.pos)
-
-print(agent.getCommState())
-
+plt.savefig('BridgeWorldRandom.eps', bbox_inches='tight')    
 
 
 

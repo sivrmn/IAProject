@@ -174,6 +174,12 @@ class BridgeAgent(Agent):
         
         # Reward
         self.goalReward = 0#100
+        
+        
+        # Collision Counts
+        self.collisionAA = 0
+        self.collisionAO = 0
+        self.collisionAW = 0
     #--------------------------------------------------------------------------    
 
 
@@ -229,6 +235,7 @@ class BridgeAgent(Agent):
             # Penalty for hitting a wall at a known locations? If yes, add here
             self.new_position = self.pos
             self.updatePenalty(self.penalty_type['AW'])
+            self.collisionAW = self.collisionAW + 1
 
         if(not (self.new_position in possible_steps)):
             # Penalty for hitting an agent at a known locations? If yes, add here
@@ -239,6 +246,7 @@ class BridgeAgent(Agent):
             # Penalty for hitting an obstacle at a known locations? If yes, add here
             self.new_position = self.pos
             self.updatePenalty(self.penalty_type['AO'])
+            self.collisionAO = self.collisionAO + 1
             
             
         return()    
@@ -268,6 +276,7 @@ class BridgeAgent(Agent):
         if(len(who_else)>0):
             self.model.grid.move_agent(self, self.pos)                
             self.updatePenalty(self.penalty_type['AA'])
+            self.collisionAA = self.collisionAA + 1
         else:    
             if(self.model.obstacleMap[self.new_position]==0):                
                 self.model.grid.move_agent(self, self.new_position)  
